@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SageDrive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+:root,[data-theme="light"]{
+  --color-bg:#f7f6f2;--color-surface:#f9f8f5;--color-surface-2:#fbfbf9;
+  --color-surface-offset:#f3f0ec;--color-surface-dynamic:#e6e4df;
+  --color-divider:#dcd9d5;--color-border:#d4d1ca;
+  --color-text:#28251d;--color-text-muted:#7a7974;--color-text-faint:#bab9b4;
+  --color-primary:#01696f;--color-primary-hover:#0c4e54;--color-primary-active:#0f3638;
+  --color-primary-highlight:#cedcd8;
+  --color-error:#a12c7b;--color-error-highlight:#e0ced7;
+  --color-success:#437a22;--color-success-highlight:#d4dfcc;
+  --color-warning:#964219;
+  --color-gold:#d19900;--color-blue:#006494;--color-purple:#7a39bb;
+  --radius-sm:.375rem;--radius-md:.5rem;--radius-lg:.75rem;--radius-xl:1rem;--radius-full:9999px;
+  --shadow-sm:0 1px 2px oklch(0.2 0.01 80/.06);
+  --shadow-md:0 4px 12px oklch(0.2 0.01 80/.08);
+  --shadow-lg:0 12px 32px oklch(0.2 0.01 80/.12);
+  --font-body:"Inter",sans-serif;--font-mono:"JetBrains Mono",monospace;
+  --space-1:.25rem;--space-2:.5rem;--space-3:.75rem;--space-4:1rem;
+  --space-5:1.25rem;--space-6:1.5rem;--space-8:2rem;--space-10:2.5rem;
+  --space-12:3rem;--space-16:4rem;
+  --text-xs:clamp(.75rem,.7rem + .25vw,.875rem);
+  --text-sm:clamp(.875rem,.8rem + .35vw,1rem);
+  --text-base:clamp(1rem,.95rem + .25vw,1.125rem);
+  --text-lg:clamp(1.125rem,1rem + .75vw,1.5rem);
+  --text-xl:clamp(1.5rem,1.2rem + 1.25vw,2.25rem);
+  --transition:180ms cubic-bezier(.16,1,.3,1);
+  --sidebar-w:240px;
+}
+[data-theme="dark"]{
+  --color-bg:#171614;--color-surface:#1c1b19;--color-surface-2:#201f1d;
+  --color-surface-offset:#1d1c1a;--color-surface-dynamic:#2d2c2a;
+  --color-divider:#262523;--color-border:#393836;
+  --color-text:#cdccca;--color-text-muted:#797876;--color-text-faint:#5a5957;
+  --color-primary:#4f98a3;--color-primary-hover:#227f8b;--color-primary-active:#1a626b;
+  --color-primary-highlight:#313b3b;
+  --color-error:#d163a7;--color-error-highlight:#4c3d46;
+  --color-success:#6daa45;--color-success-highlight:#3a4435;
+  --color-warning:#bb653b;
+  --color-gold:#e8af34;--color-blue:#5591c7;--color-purple:#a86fdf;
+  --shadow-sm:0 1px 2px oklch(0 0 0/.2);
+  --shadow-md:0 4px 12px oklch(0 0 0/.3);
+  --shadow-lg:0 12px 32px oklch(0 0 0/.4);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-font-smoothing:antialiased;scroll-behavior:smooth}
+body{min-height:100dvh;font-family:var(--font-body);font-size:var(--text-base);
+     color:var(--color-text);background:var(--color-bg);display:flex;flex-direction:column}
+img,svg{display:block;max-width:100%}
+button{cursor:pointer;background:none;border:none;font:inherit;color:inherit}
+input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--color-primary);outline-offset:3px;border-radius:var(--radius-sm)}
+a,button,[role="button"]{transition:color var(--transition),background var(--transition),
+  border-color var(--transition),box-shadow var(--transition)}
+
+/* Layout */
+#login-screen{display:flex;align-items:center;justify-content:center;
+              min-height:100dvh;background:var(--color-bg);padding:var(--space-4)}
+#app{display:flex;flex:1;height:100dvh;overflow:hidden}
+
+/* Sidebar */
+.sidebar{width:var(--sidebar-w);background:var(--color-surface);
+         border-right:1px solid var(--color-border);display:flex;
+         flex-direction:column;flex-shrink:0;height:100%;overflow-y:auto;overflow-x:hidden}
+.sidebar-header{padding:var(--space-5) var(--space-4);border-bottom:1px solid var(--color-divider);
+                display:flex;align-items:center;gap:var(--space-3);flex-shrink:0}
+.logo-svg{width:28px;height:28px;flex-shrink:0;color:var(--color-primary)}
+.sidebar-title{font-weight:700;font-size:var(--text-base);letter-spacing:-.02em}
+.sidebar-section{padding:var(--space-4) var(--space-4) var(--space-1);
+                 font-size:10px;text-transform:uppercase;letter-spacing:.1em;
+                 color:var(--color-text-faint);font-weight:600}
+.nav-item{display:flex;align-items:center;gap:var(--space-3);
+          padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);
+          margin:1px var(--space-2);font-size:var(--text-sm);color:var(--color-text-muted);
+          cursor:pointer;transition:background var(--transition),color var(--transition);
+          overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.nav-item:hover{background:var(--color-surface-offset);color:var(--color-text)}
+.nav-item.active{background:var(--color-primary-highlight);color:var(--color-primary);font-weight:500}
+.nav-item svg{flex-shrink:0;width:15px;height:15px}
+.sidebar-footer{margin-top:auto;padding:var(--space-3) var(--space-4);
+                border-top:1px solid var(--color-divider);flex-shrink:0}
+
+/* Main */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.topbar{display:flex;align-items:center;justify-content:space-between;
+        padding:0 var(--space-5);height:52px;border-bottom:1px solid var(--color-border);
+        background:var(--color-surface);flex-shrink:0;gap:var(--space-4)}
+.topbar-left{display:flex;align-items:center;gap:var(--space-2);min-width:0;flex:1}
+.topbar-right{display:flex;align-items:center;gap:var(--space-2);flex-shrink:0}
+.breadcrumb{display:flex;align-items:center;gap:var(--space-1);
+            font-size:var(--text-sm);color:var(--color-text-muted);overflow:hidden}
+.bc-seg{cursor:pointer;color:var(--color-primary);white-space:nowrap;
+        padding:2px var(--space-1);border-radius:var(--radius-sm)}
+.bc-seg:hover{background:var(--color-primary-highlight)}
+.bc-seg.current{color:var(--color-text);cursor:default;font-weight:500}
+.bc-seg.current:hover{background:none}
+.bc-sep{color:var(--color-text-faint);font-size:var(--text-xs);user-select:none}
+.content{flex:1;overflow-y:auto;padding:var(--space-5)}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-4);
+     border-radius:var(--radius-md);font-size:var(--text-sm);font-weight:500;cursor:pointer;
+     border:1px solid transparent;transition:all var(--transition);white-space:nowrap}
+.btn svg{width:14px;height:14px;flex-shrink:0}
+.btn-primary{background:var(--color-primary);color:#fff}
+.btn-primary:hover{background:var(--color-primary-hover)}
+.btn-primary:active{background:var(--color-primary-active)}
+.btn-secondary{background:var(--color-surface-offset);color:var(--color-text);
+               border-color:var(--color-border)}
+.btn-secondary:hover{background:var(--color-surface-dynamic)}
+.btn-danger{background:transparent;color:var(--color-error);border-color:var(--color-error)}
+.btn-danger:hover{background:var(--color-error);color:#fff}
+.btn-ghost{background:transparent;color:var(--color-text-muted)}
+.btn-ghost:hover{background:var(--color-surface-offset);color:var(--color-text)}
+.btn-sm{padding:var(--space-1) var(--space-3);font-size:var(--text-xs)}
+.btn-icon{padding:var(--space-2);border-radius:var(--radius-md);
+          display:inline-flex;align-items:center;justify-content:center}
+
+/* Cards */
+.card{background:var(--color-surface);border:1px solid var(--color-border);
+      border-radius:var(--radius-lg);box-shadow:var(--shadow-sm)}
+.card-header{padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--color-divider);
+             display:flex;align-items:center;justify-content:space-between;gap:var(--space-4)}
+.card-title{font-weight:600;font-size:var(--text-base)}
+.card-body{padding:var(--space-5)}
+
+/* Forms */
+.form-group{display:flex;flex-direction:column;gap:var(--space-2)}
+.form-label{font-size:var(--text-sm);font-weight:500;color:var(--color-text-muted)}
+.form-input{padding:var(--space-2) var(--space-3);border-radius:var(--radius-md);
+            border:1px solid var(--color-border);background:var(--color-surface-2);
+            font-size:var(--text-sm);width:100%;color:var(--color-text);
+            transition:border-color var(--transition),box-shadow var(--transition)}
+.form-input:focus{border-color:var(--color-primary);
+                  box-shadow:0 0 0 3px color-mix(in oklch,var(--color-primary) 20%,transparent);
+                  outline:none}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)}
+
+/* File browser */
+.file-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:var(--space-3)}
+.file-list{display:flex;flex-direction:column}
+.fitem-grid{background:var(--color-surface);border:1px solid var(--color-border);
+            border-radius:var(--radius-lg);padding:var(--space-4) var(--space-3);
+            cursor:pointer;display:flex;flex-direction:column;align-items:center;
+            gap:var(--space-2);text-align:center;transition:all var(--transition);
+            position:relative}
+.fitem-grid:hover{background:var(--color-surface-offset);box-shadow:var(--shadow-md);
+                  transform:translateY(-1px)}
+.fitem-grid .del-btn{position:absolute;top:var(--space-2);right:var(--space-2);
+                     opacity:0;transition:opacity var(--transition)}
+.fitem-grid:hover .del-btn{opacity:1}
+.fitem-list{display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);
+            border-bottom:1px solid var(--color-divider);cursor:pointer;
+            transition:background var(--transition)}
+.fitem-list:hover{background:var(--color-surface-offset)}
+.fitem-list:last-child{border-bottom:none}
+.fitem-list .file-actions{display:flex;gap:var(--space-1);margin-left:auto;opacity:0;
+                          transition:opacity var(--transition);flex-shrink:0}
+.fitem-list:hover .file-actions{opacity:1}
+.ficon{width:40px;height:40px;display:flex;align-items:center;justify-content:center;
+       border-radius:var(--radius-md);background:var(--color-surface-offset);flex-shrink:0}
+.ficon-lg{width:48px;height:48px;border-radius:var(--radius-lg);background:var(--color-surface-offset);
+          display:flex;align-items:center;justify-content:center}
+.fname{font-size:var(--text-sm);font-weight:500;overflow:hidden;
+       text-overflow:ellipsis;white-space:nowrap;max-width:130px}
+.fname-list{font-size:var(--text-sm);font-weight:500;overflow:hidden;
+            text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.fmeta{font-size:var(--text-xs);color:var(--color-text-muted)}
+
+/* Toolbar */
+.toolbar{display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-5);flex-wrap:wrap}
+.toolbar-space{flex:1}
+.view-toggle{display:flex;background:var(--color-surface-offset);
+             border-radius:var(--radius-md);padding:2px;gap:2px}
+.vbtn{padding:var(--space-1) var(--space-2);border-radius:calc(var(--radius-md) - 2px);
+      color:var(--color-text-muted);transition:all var(--transition)}
+.vbtn.active{background:var(--color-surface);color:var(--color-text);box-shadow:var(--shadow-sm)}
+.vbtn svg{width:15px;height:15px}
+
+/* Badges */
+.badge{display:inline-flex;align-items:center;gap:var(--space-1);padding:2px var(--space-2);
+       border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:500}
+.badge-ok{background:var(--color-success-highlight);color:var(--color-success)}
+.badge-err{background:var(--color-error-highlight);color:var(--color-error)}
+.badge-info{background:var(--color-primary-highlight);color:var(--color-primary)}
+
+/* Modal */
+.modal-backdrop{position:fixed;inset:0;background:oklch(0 0 0/.55);backdrop-filter:blur(4px);
+                z-index:100;display:flex;align-items:center;justify-content:center;padding:var(--space-4)}
+.modal{background:var(--color-surface);border:1px solid var(--color-border);
+       border-radius:var(--radius-xl);box-shadow:var(--shadow-lg);
+       width:100%;max-width:500px;animation:min .2s ease}
+@keyframes min{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:none}}
+.modal-header{padding:var(--space-5) var(--space-6);border-bottom:1px solid var(--color-divider);
+              display:flex;align-items:center;justify-content:space-between}
+.modal-title{font-weight:600;font-size:var(--text-base)}
+.modal-body{padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-4)}
+.modal-footer{padding:var(--space-4) var(--space-6);border-top:1px solid var(--color-divider);
+              display:flex;justify-content:flex-end;gap:var(--space-3)}
+
+/* Dropzone */
+.dropzone{border:2px dashed var(--color-border);border-radius:var(--radius-lg);
+          padding:var(--space-10);text-align:center;color:var(--color-text-muted);
+          transition:all var(--transition);cursor:pointer}
+.dropzone:hover,.dropzone.over{border-color:var(--color-primary);
+                                background:var(--color-primary-highlight);
+                                color:var(--color-primary)}
+
+/* Toast */
+.toast-wrap{position:fixed;bottom:var(--space-6);right:var(--space-6);
+            display:flex;flex-direction:column;gap:var(--space-2);z-index:999;
+            pointer-events:none}
+.toast{background:var(--color-surface-2);border:1px solid var(--color-border);
+       border-radius:var(--radius-lg);padding:var(--space-3) var(--space-4);
+       box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:var(--space-3);
+       font-size:var(--text-sm);min-width:260px;max-width:360px;
+       animation:tin .25s ease;pointer-events:all}
+@keyframes tin{from{opacity:0;transform:translateX(10px)}to{opacity:1;transform:none}}
+.toast.ok{border-left:3px solid var(--color-success)}
+.toast.err{border-left:3px solid var(--color-error)}
+.toast svg{flex-shrink:0;width:15px;height:15px}
+.toast.ok svg{color:var(--color-success)}
+.toast.err svg{color:var(--color-error)}
+
+/* Login */
+.login-card{background:var(--color-surface);border:1px solid var(--color-border);
+            border-radius:var(--radius-xl);box-shadow:var(--shadow-lg);
+            width:100%;max-width:380px;padding:var(--space-10)}
+.login-logo{display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-8)}
+.login-heading{font-size:var(--text-xl);font-weight:700;letter-spacing:-.02em}
+
+/* Settings */
+.share-item{background:var(--color-surface);border:1px solid var(--color-border);
+            border-radius:var(--radius-lg);padding:var(--space-4);
+            display:flex;align-items:center;gap:var(--space-4)}
+.share-info{flex:1;min-width:0}
+.share-host{font-size:var(--text-xs);color:var(--color-text-muted);
+            font-family:var(--font-mono);margin-top:2px;
+            overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* States */
+.spinner{width:20px;height:20px;border:2px solid var(--color-border);
+         border-top-color:var(--color-primary);border-radius:50%;
+         animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading{display:flex;align-items:center;justify-content:center;padding:var(--space-16)}
+.empty{display:flex;flex-direction:column;align-items:center;text-align:center;
+       padding:var(--space-16) var(--space-8);color:var(--color-text-muted)}
+.empty svg{width:48px;height:48px;margin-bottom:var(--space-4);color:var(--color-text-faint)}
+.empty h3{color:var(--color-text);margin-bottom:var(--space-2);font-size:var(--text-base)}
+.empty p{max-width:36ch;margin-bottom:var(--space-6);font-size:var(--text-sm)}
+
+/* Responsive */
+@media(max-width:768px){
+  .sidebar{position:fixed;left:0;top:0;bottom:0;z-index:50;
+           transform:translateX(-100%);transition:transform var(--transition)}
+  .sidebar.open{transform:none;box-shadow:var(--shadow-lg)}
+  .mobile-only{display:flex!important}
+  .form-row{grid-template-columns:1fr}
+  .topbar{padding:0 var(--space-4)}
+  .content{padding:var(--space-4)}
+}
+@media(min-width:769px){.mobile-only{display:none!important}}
+</style>
+</head>
+<body>
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg class="logo-svg" viewBox="0 0 28 28" fill="none" aria-label="SageDrive">
+        <rect width="28" height="28" rx="7" fill="currentColor" opacity=".15"/>
+        <path d="M6 20L10 10l3.5 7 3-5L21 20" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="21" cy="8" r="2.5" fill="currentColor"/>
+      </svg>
+      <span class="login-heading">SageDrive</span>
+    </div>
+    <form id="login-form" style="display:flex;flex-direction:column;gap:var(--space-4)">
+      <div class="form-group">
+        <label class="form-label" for="lu">Username</label>
+        <input class="form-input" id="lu" type="text" autocomplete="username" required autofocus/>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="lp">Password</label>
+        <input class="form-input" id="lp" type="password" autocomplete="current-password" required/>
+      </div>
+      <div id="lerr" style="color:var(--color-error);font-size:var(--text-sm);display:none"></div>
+      <button class="btn btn-primary" type="submit" id="lbtn" style="margin-top:var(--space-2);justify-content:center">
+        Sign in
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <svg class="logo-svg" viewBox="0 0 28 28" fill="none" aria-label="SageDrive">
+        <rect width="28" height="28" rx="7" fill="currentColor" opacity=".15"/>
+        <path d="M6 20L10 10l3.5 7 3-5L21 20" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="21" cy="8" r="2.5" fill="currentColor"/>
+      </svg>
+      <span class="sidebar-title">SageDrive</span>
+    </div>
+    <div style="flex:1;padding:var(--space-2) 0">
+      <div class="sidebar-section">Drives</div>
+      <div id="nav-drives"></div>
+      <div class="sidebar-section" style="margin-top:var(--space-3)">App</div>
+      <div class="nav-item" id="nav-settings" onclick="showSettings()">
+        <svg data-lucide="settings" width="15" height="15"></svg>Settings
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span id="nav-user" style="font-size:var(--text-sm);color:var(--color-text-muted);
+              overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px"></span>
+        <div style="display:flex;gap:2px">
+          <button class="btn btn-ghost btn-icon" onclick="toggleTheme()"
+                  aria-label="Toggle theme" title="Toggle theme" id="theme-btn">
+            <svg data-lucide="moon" width="15" height="15"></svg>
+          </button>
+          <button class="btn btn-ghost btn-icon" onclick="doLogout()"
+                  aria-label="Sign out" title="Sign out">
+            <svg data-lucide="log-out" width="15" height="15"></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="btn btn-ghost btn-icon mobile-only" id="mob-menu"
+                style="display:none" onclick="toggleSidebar()" aria-label="Menu">
+          <svg data-lucide="menu" width="17" height="17"></svg>
+        </button>
+        <nav class="breadcrumb" id="breadcrumb" aria-label="breadcrumb"></nav>
+      </div>
+      <div class="topbar-right" id="topbar-right"></div>
+    </div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toasts"></div>
+<div id="modal"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+let TOKEN = sessionStorage.getItem('sd_tok') || null;
+let USER  = null;
+let DRIVE = null;   // {type:'smb'|'gdrive', id, name}
+let PATH  = '/';    // smb path
+let STACK = [];     // gdrive [{id,name}]
+let VIEW  = 'list'; // list|grid
+let SHARES = [];
+let GDS   = {configured:false, authenticated:false};
+
+// ═══════════════════════════════════════════════════════════════
+// API
+// ═══════════════════════════════════════════════════════════════
+async function api(path, opts={}) {
+  const h = {...(opts.headers||{})};
+  if (TOKEN) h['Authorization'] = 'Bearer ' + TOKEN;
+  if (opts.json !== undefined) {
+    h['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(opts.json);
+    delete opts.json;
+  }
+  const r = await fetch(path, {...opts, headers:h});
+  if (r.status === 401) { doLogout(); throw new Error('Session expired'); }
+  return r;
+}
+async function apiJ(path, opts={}) {
+  const r = await api(path, opts);
+  const j = await r.json().catch(()=>({}));
+  if (!r.ok) throw new Error(j.error || 'Request failed');
+  return j;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════════════
+document.getElementById('login-form').onsubmit = async e => {
+  e.preventDefault();
+  const btn = document.getElementById('lbtn');
+  const err = document.getElementById('lerr');
+  err.style.display = 'none';
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  try {
+    const d = await apiJ('/api/auth/login', {method:'POST',
+      json:{username:document.getElementById('lu').value,
+            password:document.getElementById('lp').value}});
+    TOKEN = d.token;
+    sessionStorage.setItem('sd_tok', TOKEN);
+    await boot();
+  } catch(e) {
+    err.textContent = e.message; err.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Sign in';
+  }
+};
+
+async function doLogout() {
+  try { await api('/api/auth/logout', {method:'POST'}); } catch(_){}
+  TOKEN = null; sessionStorage.removeItem('sd_tok');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('lu').value = '';
+  document.getElementById('lp').value = '';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════════════
+async function boot() {
+  try { USER = await apiJ('/api/auth/me'); }
+  catch(_) { doLogout(); return; }
+  document.getElementById('nav-user').textContent = USER.username;
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  await Promise.all([loadShares(), loadGDS()]);
+  renderNav();
+  showWelcome();
+  lucide.createIcons();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NAV
+// ═══════════════════════════════════════════════════════════════
+function renderNav() {
+  let h = '';
+  const gdIcon = GDS.authenticated ? 'hard-drive-cloud' : 'cloud-off';
+  const gdActive = DRIVE?.type === 'gdrive';
+  h += `<div class="nav-item${gdActive?' active':''}" onclick="openGDrive()">
+    <svg data-lucide="${gdIcon}" width="15" height="15"></svg>
+    <span style="overflow:hidden;text-overflow:ellipsis">Google Drive</span>
+    ${!GDS.authenticated?`<span class="badge badge-err" style="margin-left:auto;font-size:10px">off</span>`:''}
+  </div>`;
+  for (const s of SHARES) {
+    const active = DRIVE?.type==='smb' && DRIVE.id===s.id;
+    h += `<div class="nav-item${active?' active':''}" onclick="openSMB('${esc(s.id)}','${esc(s.name)}')">
+      <svg data-lucide="server" width="15" height="15"></svg>
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name)}</span>
+    </div>`;
+  }
+  if (!SHARES.length && !GDS.configured) {
+    h += `<div style="padding:var(--space-3) var(--space-4);font-size:var(--text-xs);
+                      color:var(--color-text-faint)">Add a drive in Settings</div>`;
+  }
+  document.getElementById('nav-drives').innerHTML = h;
+  document.getElementById('nav-settings').classList.toggle('active', DRIVE===null && document.getElementById('content').dataset.view==='settings');
+  lucide.createIcons();
+}
+
+async function loadShares() {
+  try { SHARES = await apiJ('/api/smb/shares'); } catch(_) { SHARES=[]; }
+}
+async function loadGDS() {
+  try { GDS = await apiJ('/api/gdrive/status'); } catch(_) {}
+}
+
+// ═══════════════════════════════════════════════════════════════
+// VIEWS
+// ═══════════════════════════════════════════════════════════════
+function showWelcome() {
+  DRIVE = null;
+  setBC([{name:'Home'}]);
+  setActions('');
+  const c = document.getElementById('content');
+  c.dataset.view = 'welcome';
+  c.innerHTML = `
+    <div class="empty" style="margin-top:var(--space-8)">
+      <svg data-lucide="layers" style="width:64px;height:64px;color:var(--color-primary);
+           margin-bottom:var(--space-6)"></svg>
+      <h2 style="font-size:var(--text-xl);margin-bottom:var(--space-3)">Welcome to SageDrive</h2>
+      <p style="font-size:var(--text-base);color:var(--color-text-muted);max-width:44ch">
+        Pick a drive from the sidebar to browse files, or open
+        <strong>Settings</strong> to connect an SMB share or Google Drive.
+      </p>
+    </div>`;
+  lucide.createIcons();
+  renderNav();
+}
+
+// ── SMB ──────────────────────────────────────────────────────
+function openSMB(id, name) {
+  DRIVE = {type:'smb', id, name};
+  PATH = '/';
+  renderNav();
+  loadSMB();
+}
+
+async function loadSMB() {
+  setBC(smbBC());
+  setActions(fileTB('smb'));
+  showLoading();
+  try {
+    const files = await apiJ(`/api/smb/browse/${DRIVE.id}?path=${encodeURIComponent(PATH)}`);
+    renderFiles(files, 'smb');
+  } catch(e) { showErr(e.message); }
+}
+
+function smbBC() {
+  const parts = PATH.split('/').filter(Boolean);
+  const crumbs = [{name: DRIVE.name, click: ()=>{ PATH='/'; loadSMB(); }}];
+  let built = '';
+  for (let i=0; i<parts.length; i++) {
+    built += '/' + parts[i];
+    const cap = built;
+    const isLast = i===parts.length-1;
+    crumbs.push({name:parts[i], click: isLast ? null : ()=>{ PATH=cap; loadSMB(); }});
+  }
+  return crumbs;
+}
+
+// ── GDrive ───────────────────────────────────────────────────
+function openGDrive() {
+  if (!GDS.authenticated) { toast('Connect Google Drive in Settings first','err'); return; }
+  DRIVE = {type:'gdrive', id:'root', name:'Google Drive'};
+  STACK = [{id:'root', name:'Google Drive'}];
+  renderNav();
+  loadGD();
+}
+
+async function loadGD() {
+  const fid = STACK[STACK.length-1].id;
+  setBC(gdBC());
+  setActions(fileTB('gdrive'));
+  showLoading();
+  try {
+    const files = await apiJ(`/api/gdrive/files?folder=${fid}`);
+    renderFiles(files, 'gdrive');
+  } catch(e) { showErr(e.message); }
+}
+
+function gdBC() {
+  return STACK.map((s,i) => ({
+    name: s.name,
+    click: i<STACK.length-1 ? ()=>{ STACK=STACK.slice(0,i+1); loadGD(); } : null
+  }));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FILE RENDERING
+// ═══════════════════════════════════════════════════════════════
+const EXT_ICON = {
+  pdf:'file-text',mp3:'music',wav:'music',flac:'music',
+  mp4:'video',mov:'video',avi:'video',mkv:'video',
+  jpg:'image',jpeg:'image',png:'image',gif:'image',webp:'image',svg:'image',
+  zip:'archive',tar:'archive',gz:'archive',rar:'archive','7z':'archive',
+  doc:'file-text',docx:'file-text',xls:'sheet',xlsx:'sheet',
+  ppt:'presentation',pptx:'presentation',
+  txt:'file-text',md:'file-text',
+  js:'code',ts:'code',py:'code',sh:'code',json:'code',html:'code',css:'code',
+};
+const EXT_COLOR = {
+  jpg:'var(--color-blue)',jpeg:'var(--color-blue)',png:'var(--color-blue)',
+  gif:'var(--color-blue)',webp:'var(--color-blue)',svg:'var(--color-blue)',
+  mp3:'var(--color-purple)',wav:'var(--color-purple)',flac:'var(--color-purple)',
+  mp4:'var(--color-error)',mov:'var(--color-error)',mkv:'var(--color-error)',
+  zip:'var(--color-warning)',tar:'var(--color-warning)',gz:'var(--color-warning)',rar:'var(--color-warning)',
+  pdf:'#e05252',
+};
+
+function ficon(f) {
+  if (f.type==='folder') return 'folder';
+  const x = f.name.split('.').pop().toLowerCase();
+  return EXT_ICON[x] || 'file';
+}
+function fcolor(f) {
+  if (f.type==='folder') return 'var(--color-gold)';
+  const x = f.name.split('.').pop().toLowerCase();
+  return EXT_COLOR[x] || 'var(--color-text-muted)';
+}
+function fmtSz(b) {
+  if (!b) return '—';
+  if (b<1024) return b+'B';
+  if (b<1048576) return (b/1024).toFixed(1)+'KB';
+  if (b<1073741824) return (b/1048576).toFixed(1)+'MB';
+  return (b/1073741824).toFixed(2)+'GB';
+}
+function fmtDt(ts) {
+  if (!ts) return '';
+  const d = typeof ts==='number' ? new Date(ts*1000) : new Date(ts);
+  return isNaN(d)?'':d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
+}
+
+function renderFiles(files, type) {
+  if (!files.length) {
+    document.getElementById('content').innerHTML = `
+      <div class="empty">
+        <svg data-lucide="folder-open"></svg>
+        <h3>Empty folder</h3>
+        <p>Upload a file or create a folder to get started.</p>
+        <button class="btn btn-primary btn-sm" onclick="showUpload('${type}')">
+          <svg data-lucide="upload" width="13" height="13"></svg> Upload
+        </button>
+      </div>`;
+    lucide.createIcons(); return;
+  }
+  files.sort((a,b)=>{
+    if (a.type!==b.type) return a.type==='folder'?-1:1;
+    return a.name.localeCompare(b.name);
+  });
+  const c = document.getElementById('content');
+  if (VIEW==='grid') {
+    c.innerHTML = `<div class="file-grid">${files.map(f=>gridCard(f,type)).join('')}</div>`;
+  } else {
+    c.innerHTML = `<div class="card"><div class="file-list">${files.map(f=>listRow(f,type)).join('')}</div></div>`;
+  }
+  lucide.createIcons();
+}
+
+function gridCard(f, type) {
+  const fj = escAttr(JSON.stringify(f));
+  return `<div class="fitem-grid" onclick="fclick('${fj}','${type}')">
+    <button class="btn btn-danger btn-icon btn-sm del-btn" style="padding:3px"
+            onclick="event.stopPropagation();rmFile('${fj}','${type}')" title="Delete">
+      <svg data-lucide="trash-2" width="12" height="12"></svg></button>
+    <div class="ficon-lg" style="color:${fcolor(f)}">
+      <svg data-lucide="${ficon(f)}" width="22" height="22"></svg></div>
+    <span class="fname" title="${esc(f.name)}">${esc(f.name)}</span>
+    <span class="fmeta">${fmtSz(f.size)}</span>
+  </div>`;
+}
+
+function listRow(f, type) {
+  const fj = escAttr(JSON.stringify(f));
+  return `<div class="fitem-list">
+    <div class="ficon" style="color:${fcolor(f)}">
+      <svg data-lucide="${ficon(f)}" width="17" height="17"></svg></div>
+    <span class="fname-list" title="${esc(f.name)}"
+          onclick="fclick('${fj}','${type}')">${esc(f.name)}</span>
+    <span class="fmeta" style="min-width:72px;text-align:right">${fmtSz(f.size)}</span>
+    <span class="fmeta" style="min-width:90px;text-align:right;display:none" data-desktop>${fmtDt(f.modified)}</span>
+    <div class="file-actions">
+      ${f.type!=='folder'?`<button class="btn btn-ghost btn-icon btn-sm"
+          onclick="dlFile('${fj}','${type}')" title="Download">
+        <svg data-lucide="download" width="13" height="13"></svg></button>`:''}
+      <button class="btn btn-danger btn-icon btn-sm"
+          onclick="rmFile('${fj}','${type}')" title="Delete">
+        <svg data-lucide="trash-2" width="13" height="13"></svg></button>
+    </div>
+  </div>`;
+}
+
+function fclick(fj, type) {
+  const f = JSON.parse(fj);
+  if (f.type !== 'folder') { dlFile(fj, type); return; }
+  if (type==='smb') {
+    PATH = f.path || (PATH.replace(/\/$/,'') + '/' + f.name);
+    loadSMB();
+  } else {
+    STACK.push({id:f.id, name:f.name});
+    loadGD();
+  }
+}
+
+async function dlFile(fj, type) {
+  const f = JSON.parse(fj);
+  try {
+    const r = await api(type==='smb'
+      ? `/api/smb/download/${DRIVE.id}?path=${encodeURIComponent(f.path)}`
+      : `/api/gdrive/download/${f.id}`);
+    const blob = await r.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = f.name; a.click();
+    toast('Downloading ' + f.name);
+  } catch(e) { toast('Download failed: '+e.message,'err'); }
+}
+
+async function rmFile(fj, type) {
+  const f = JSON.parse(fj);
+  if (!confirm('Delete "'+f.name+'"?')) return;
+  try {
+    if (type==='smb') {
+      await apiJ(`/api/smb/delete/${DRIVE.id}`,
+        {method:'DELETE', json:{path:f.path||'/'+f.name, is_dir:f.type==='folder'}});
+      loadSMB();
+    } else {
+      await apiJ(`/api/gdrive/delete/${f.id}`, {method:'DELETE'});
+      loadGD();
+    }
+    toast('Deleted "'+f.name+'"');
+  } catch(e) { toast('Delete failed: '+e.message,'err'); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TOOLBAR
+// ═══════════════════════════════════════════════════════════════
+function fileTB(type) {
+  return `
+    <button class="btn btn-secondary btn-sm" onclick="showMkdir('${type}')">
+      <svg data-lucide="folder-plus" width="13" height="13"></svg> New Folder
+    </button>
+    <button class="btn btn-primary btn-sm" onclick="showUpload('${type}')">
+      <svg data-lucide="upload" width="13" height="13"></svg> Upload
+    </button>
+    <div class="view-toggle">
+      <button class="vbtn${VIEW==='list'?' active':''}" onclick="setView('list')" title="List">
+        <svg data-lucide="list" width="15" height="15"></svg></button>
+      <button class="vbtn${VIEW==='grid'?' active':''}" onclick="setView('grid')" title="Grid">
+        <svg data-lucide="layout-grid" width="15" height="15"></svg></button>
+    </div>`;
+}
+
+function setView(v) {
+  VIEW = v;
+  if (DRIVE?.type==='smb') loadSMB();
+  else if (DRIVE?.type==='gdrive') loadGD();
+}
+</script>
+<script>
+// ═══════════════════════════════════════════════════════════════
+// UPLOAD MODAL
+// ═══════════════════════════════════════════════════════════════
+function showUpload(type) {
+  showModal(`
+    <div class="modal-header">
+      <span class="modal-title">Upload Files</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal()">
+        <svg data-lucide="x" width="15" height="15"></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="dropzone" id="dz"
+           ondragover="dzOver(event)" ondragleave="dzLeave(event)"
+           ondrop="dzDrop(event,'${type}')"
+           onclick="document.getElementById('fup').click()">
+        <svg data-lucide="upload-cloud" width="28" height="28"
+             style="margin:0 auto var(--space-3);color:var(--color-text-faint)"></svg>
+        <p style="margin-bottom:var(--space-2)">Drag &amp; drop or click to choose</p>
+        <input type="file" id="fup" style="display:none" multiple
+               onchange="doUpload(this.files,'${type}')"/>
+      </div>
+      <div id="uprog" style="display:none;font-size:var(--text-sm);
+           color:var(--color-text-muted);text-align:center"></div>
+    </div>
+  `);
+  lucide.createIcons();
+}
+
+function dzOver(e) { e.preventDefault(); document.getElementById('dz').classList.add('over'); }
+function dzLeave() { document.getElementById('dz').classList.remove('over'); }
+function dzDrop(e, type) {
+  e.preventDefault();
+  document.getElementById('dz').classList.remove('over');
+  doUpload(e.dataTransfer.files, type);
+}
+
+async function doUpload(files, type) {
+  const prog = document.getElementById('uprog');
+  prog.style.display = 'block';
+  let ok = 0;
+  for (const file of Array.from(files)) {
+    prog.textContent = 'Uploading ' + file.name + '…';
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const r = type === 'smb'
+        ? await api(`/api/smb/upload/${DRIVE.id}?path=${encodeURIComponent(PATH)}`,
+            {method:'POST', body:fd})
+        : await api(`/api/gdrive/upload?folder=${STACK[STACK.length-1].id}`,
+            {method:'POST', body:fd});
+      if (!r.ok) { const j=await r.json().catch(()=>({})); throw new Error(j.error||'Upload failed'); }
+      ok++;
+    } catch(e) { toast('Failed: '+file.name+' — '+e.message,'err'); }
+  }
+  closeModal();
+  if (ok) toast('Uploaded '+ok+' file'+(ok>1?'s':''));
+  if (type==='smb') loadSMB(); else loadGD();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MKDIR MODAL
+// ═══════════════════════════════════════════════════════════════
+function showMkdir(type) {
+  showModal(`
+    <div class="modal-header">
+      <span class="modal-title">New Folder</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal()">
+        <svg data-lucide="x" width="15" height="15"></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Folder name</label>
+        <input class="form-input" id="mkname" type="text" placeholder="New Folder"
+               onkeydown="if(event.key==='Enter')doMkdir('${type}')"/>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="doMkdir('${type}')">Create</button>
+    </div>
+  `);
+  lucide.createIcons();
+  setTimeout(()=>document.getElementById('mkname')?.focus(), 50);
+}
+
+async function doMkdir(type) {
+  const name = document.getElementById('mkname').value.trim();
+  if (!name) return;
+  try {
+    if (type==='smb') {
+      await apiJ(`/api/smb/mkdir/${DRIVE.id}`,
+        {method:'POST', json:{path:PATH.replace(/\/$/,'')+'/'+name}});
+      loadSMB();
+    } else {
+      await apiJ('/api/gdrive/mkdir',
+        {method:'POST', json:{parent:STACK[STACK.length-1].id, name}});
+      loadGD();
+    }
+    closeModal();
+    toast('Folder created');
+  } catch(e) { toast('Failed: '+e.message,'err'); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════════════════════
+async function showSettings() {
+  DRIVE = null;
+  setBC([{name:'Settings'}]);
+  setActions('');
+  const c = document.getElementById('content');
+  c.dataset.view = 'settings';
+  await Promise.all([loadShares(), loadGDS()]);
+  renderNav();
+
+  c.innerHTML = `
+  <div style="display:grid;gap:var(--space-6);max-width:700px">
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">SMB Shares</span>
+        <button class="btn btn-primary btn-sm" onclick="showAddShare()">
+          <svg data-lucide="plus" width="13" height="13"></svg> Add Share
+        </button>
+      </div>
+      <div class="card-body">
+        <div id="share-list" style="display:flex;flex-direction:column;gap:var(--space-3)">
+          ${SHARES.length ? SHARES.map(s=>`
+            <div class="share-item">
+              <div style="color:var(--color-primary);flex-shrink:0">
+                <svg data-lucide="server" width="20" height="20"></svg></div>
+              <div class="share-info">
+                <div style="font-weight:500">${esc(s.name)}</div>
+                <div class="share-host">${esc(s.host)} › \\\\${esc(s.share)}</div>
+              </div>
+              <button class="btn btn-danger btn-sm btn-icon"
+                      onclick="deleteShare('${esc(s.id)}')" title="Remove">
+                <svg data-lucide="trash-2" width="13" height="13"></svg></button>
+            </div>`).join('') : `
+            <div class="empty" style="padding:var(--space-8)">
+              <svg data-lucide="server-off" style="width:32px;height:32px"></svg>
+              <h3>No shares added</h3>
+              <p>Add a Windows or NAS share to browse it here.</p>
+            </div>`}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Google Drive</span>
+        <span class="badge ${GDS.authenticated?'badge-ok':'badge-err'}">
+          ${GDS.authenticated?'Connected':'Disconnected'}
+        </span>
+      </div>
+      <div class="card-body" style="display:flex;flex-direction:column;gap:var(--space-4)">
+        ${!GDS.configured ? `
+          <p style="font-size:var(--text-sm);color:var(--color-text-muted)">
+            Set <code style="font-family:var(--font-mono);background:var(--color-surface-offset);
+            padding:1px 5px;border-radius:var(--radius-sm)">GOOGLE_CLIENT_ID</code> and
+            <code style="font-family:var(--font-mono);background:var(--color-surface-offset);
+            padding:1px 5px;border-radius:var(--radius-sm)">GOOGLE_CLIENT_SECRET</code>
+            in your <code style="font-family:var(--font-mono);background:var(--color-surface-offset);
+            padding:1px 5px;border-radius:var(--radius-sm)">.env</code>
+            to enable Google Drive. See the README for setup instructions.
+          </p>` : GDS.authenticated ? `
+          <p style="font-size:var(--text-sm);color:var(--color-text-muted)">
+            Google Drive is connected and ready to use.</p>
+          <button class="btn btn-danger btn-sm" style="width:fit-content"
+                  onclick="disconnectGD()">
+            <svg data-lucide="unlink" width="13" height="13"></svg> Disconnect
+          </button>` : `
+          <p style="font-size:var(--text-sm);color:var(--color-text-muted)">
+            Authorise SageDrive to access your Google Drive.</p>
+          <button class="btn btn-primary btn-sm" style="width:fit-content"
+                  onclick="connectGD()">
+            <svg data-lucide="link" width="13" height="13"></svg> Connect Google Drive
+          </button>`}
+      </div>
+    </div>
+
+  </div>`;
+  lucide.createIcons();
+}
+
+function showAddShare() {
+  showModal(`
+    <div class="modal-header">
+      <span class="modal-title">Add SMB Share</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal()">
+        <svg data-lucide="x" width="15" height="15"></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Display Name</label>
+        <input class="form-input" id="sn" placeholder="My NAS" autofocus/></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Host / IP</label>
+          <input class="form-input" id="sh" placeholder="192.168.1.10"/></div>
+        <div class="form-group">
+          <label class="form-label">Share Name</label>
+          <input class="form-input" id="ss" placeholder="media"/></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <input class="form-input" id="su" placeholder="(optional)"/></div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input class="form-input" id="sp" type="password"/></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Port</label>
+        <input class="form-input" id="spo" value="445" type="number"/></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="doAddShare()">Add Share</button>
+    </div>
+  `);
+  lucide.createIcons();
+}
+
+async function doAddShare() {
+  const body = {
+    name: document.getElementById('sn').value.trim(),
+    host: document.getElementById('sh').value.trim(),
+    share: document.getElementById('ss').value.trim(),
+    username: document.getElementById('su').value.trim(),
+    password: document.getElementById('sp').value,
+    port: parseInt(document.getElementById('spo').value)||445,
+  };
+  if (!body.name||!body.host||!body.share) {
+    toast('Name, host and share are required','err'); return; }
+  try {
+    await apiJ('/api/smb/shares', {method:'POST', json:body});
+    closeModal(); toast('Share added');
+    await loadShares(); renderNav(); showSettings();
+  } catch(e) { toast('Failed: '+e.message,'err'); }
+}
+
+async function deleteShare(id) {
+  if (!confirm('Remove this share?')) return;
+  try {
+    await apiJ(`/api/smb/shares/${id}`, {method:'DELETE'});
+    toast('Share removed');
+    if (DRIVE?.id===id) showWelcome();
+    await loadShares(); renderNav(); showSettings();
+  } catch(e) { toast('Failed: '+e.message,'err'); }
+}
+
+async function connectGD() {
+  try {
+    const d = await apiJ('/api/gdrive/auth');
+    window.open(d.url,'_blank');
+    toast('Complete authorisation in the new tab, then re-open Settings');
+  } catch(e) { toast('Failed: '+e.message,'err'); }
+}
+
+async function disconnectGD() {
+  if (!confirm('Disconnect Google Drive?')) return;
+  try {
+    await apiJ('/api/gdrive/revoke', {method:'DELETE'});
+    toast('Google Drive disconnected');
+    if (DRIVE?.type==='gdrive') showWelcome();
+    await loadGDS(); renderNav(); showSettings();
+  } catch(e) { toast('Failed: '+e.message,'err'); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════════════════
+function showLoading() {
+  document.getElementById('content').innerHTML =
+    `<div class="loading"><div class="spinner"></div></div>`;
+}
+function showErr(msg) {
+  document.getElementById('content').innerHTML =
+    `<div class="empty"><svg data-lucide="alert-triangle"></svg>
+     <h3>Error</h3><p>${esc(msg)}</p></div>`;
+  lucide.createIcons();
+}
+function setBC(crumbs) {
+  document.getElementById('breadcrumb').innerHTML = crumbs.map((c,i)=>{
+    const last = i===crumbs.length-1;
+    const sep  = i>0 ? `<span class="bc-sep">/</span>` : '';
+    const cls  = last||!c.click ? 'bc-seg current' : 'bc-seg';
+    const fn   = c.click ? `onclick="(${c.click.toString()})()"` : '';
+    return `${sep}<span class="${cls}" ${fn}>${esc(c.name)}</span>`;
+  }).join('');
+}
+function setActions(html) {
+  document.getElementById('topbar-right').innerHTML = html;
+  lucide.createIcons();
+}
+function showModal(html) {
+  document.getElementById('modal').innerHTML =
+    `<div class="modal-backdrop" id="mbk">
+       <div class="modal">${html}</div></div>`;
+  document.getElementById('mbk').onclick = e => {
+    if (e.target.id==='mbk') closeModal(); };
+  lucide.createIcons();
+}
+function closeModal() { document.getElementById('modal').innerHTML=''; }
+
+function toast(msg, type='ok') {
+  const el = document.createElement('div');
+  el.className = 'toast '+type;
+  const icon = type==='ok' ? 'check-circle-2' : 'alert-circle';
+  el.innerHTML = `<svg data-lucide="${icon}"></svg><span>${esc(msg)}</span>`;
+  document.getElementById('toasts').appendChild(el);
+  lucide.createIcons();
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateX(10px)';
+    el.style.transition='all .3s'; setTimeout(()=>el.remove(),300); }, 4000);
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')
+                      .replace(/'/g,'&#39;');
+}
+
+function toggleTheme() {
+  const h = document.documentElement;
+  const t = h.getAttribute('data-theme')==='dark'?'light':'dark';
+  h.setAttribute('data-theme', t);
+  const btn = document.getElementById('theme-btn');
+  btn.innerHTML = t==='dark'
+    ? '<svg data-lucide="moon" width="15" height="15"></svg>'
+    : '<svg data-lucide="sun" width="15" height="15"></svg>';
+  lucide.createIcons();
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
+
+function checkMobile() {
+  const m = window.innerWidth < 769;
+  const btn = document.getElementById('mob-menu');
+  if (btn) btn.style.display = m ? 'inline-flex' : 'none';
+  document.querySelectorAll('[data-desktop]').forEach(el=>{
+    el.style.display = m ? 'none' : '';
+  });
+}
+window.addEventListener('resize', checkMobile);
+
+if (location.hash === '#gdrive-connected') {
+  history.replaceState(null,'',location.pathname);
+  setTimeout(()=>toast('Google Drive connected — open Settings to verify'),500);
+}
+
+// Boot
+(async()=>{
+  if (TOKEN) {
+    try { await boot(); }
+    catch(_) {
+      document.getElementById('app').style.display='none';
+      document.getElementById('login-screen').style.display='flex';
+    }
+  }
+  checkMobile();
+})();
+</script>
+</body>
+</html>
