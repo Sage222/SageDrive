@@ -1,4 +1,4 @@
-import json, os, io
+import json, os, io, socket
 from pathlib import Path
 from smb.SMBConnection import SMBConnection
 
@@ -24,9 +24,24 @@ def remove_share(share_id):
     _save([s for s in _load() if s["id"] != share_id])
 
 def _conn(cfg):
-    c = SMBConnection(cfg["username"], cfg["password"], "sagedrive", cfg["host"],
-    use_ntlm_v2=True, is_direct_tcp=True,
-    sign_options=SMBConnection.SIGN_WHEN_SUPPORTED)
+    host = cfg["host"]
+    port = int(cfg.get("port", 445))
+    try:
+        remote_name = socket.gethostbyaddr(host)[0].split(".")[0].upper()
+    except Exception:
+        remote_name = host.split(".")[0].upper()
+    c = SMBConnection(
+        cfg["username"], cfg["password"],
+        "SAGEDRIVE", remote_name,
+        use_ntlm_v2=True,
+        is_direct_tcp=(port == 445),
+    )
+    connected = c.connect(host, port)
+    if not connected:
+        raise ConnectionError(
+            f"SMB connect failed for {host}:{port} (remote_name={remote_name!r}). "
+            "Check credentials, share name, and that SMB2/3 is enabled."
+        )
     return c
 
 def _cfg(share_id):
