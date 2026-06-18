@@ -14,13 +14,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN sed -i 's/#user_allow_other/user_allow_other/' /etc/fuse.conf
 
 WORKDIR /app
-COPY backend/requirements.txt ./backend/
-RUN pip install --no-cache-dir -r backend/requirements.txt
+COPY backend/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+# Copy backend files to /app
+COPY backend/ ./
+
+# CRITICAL FIX: Copy frontend files to /app/static where Flask expects them!
+COPY frontend/public/ ./static/
 
 # Move Samba config
-RUN cp smb.conf /etc/samba/smb.conf
+COPY smb.conf /etc/samba/smb.conf
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 EXPOSE 8080 445
 

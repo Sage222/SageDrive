@@ -40,5 +40,5 @@ smbd -D
 
 # D) Start the original SageDrive Python backend
 echo "Starting SageDrive Web Interface..."
-cd /app/backend
+cd /app
 exec python3 main.py
