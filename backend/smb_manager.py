@@ -57,17 +57,23 @@ def stream_file(share_id, path, chunk_size=2*1024*1024):
         use_ntlm_v2=True, is_direct_tcp=(port == 445))
     if not c.connect(host, port):
         raise ConnectionError(f"SMB connect failed for {host}:{port}")
+    # Get file size first
+    try:
+        attrs = c.getAttributes(cfg["share"], path)
+        file_size = attrs.file_size
+    except Exception:
+        file_size = None
     try:
         offset = 0
-        while True:
+        while file_size is None or offset < file_size:
             buf = io.BytesIO()
-            bytes_read, _ = c.retrieveFileFromOffset(cfg["share"], path, buf, offset, max_length=chunk_size)
-            if bytes_read == 0:
+            bytes_read, _ = c.retrieveFileFromOffset(
+                cfg["share"], path, buf, offset, max_length=chunk_size)
+            data = buf.getvalue()
+            if bytes_read <= 0 or not data:
                 break
-            yield buf.getvalue()
+            yield data
             offset += bytes_read
-            if bytes_read < chunk_size:
-                break
     finally:
         c.close()
 
