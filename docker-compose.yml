@@ -1,16 +1,13 @@
 version: "3.9"
-
 services:
-  sagedrive-backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: sagedrive-backend
+  sagedrive:
+    build: .
+    container_name: sagedrive
     restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
-      - SECRET_KEY=${SECRET_KEY:-changeme-use-a-long-random-string}
+      - SECRET_KEY=${SECRET_KEY:-changeme}
       - ADMIN_USER=${ADMIN_USER:-admin}
       - ADMIN_PASS=${ADMIN_PASS:-changeme}
       - SESSION_TTL_HOURS=${SESSION_TTL_HOURS:-24}
@@ -19,6 +16,5 @@ services:
       - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-http://localhost:8080/api/gdrive/callback}
     volumes:
       - sagedrive-data:/app/data
-
 volumes:
   sagedrive-data:
