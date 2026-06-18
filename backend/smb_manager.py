@@ -24,8 +24,9 @@ def remove_share(share_id):
     _save([s for s in _load() if s["id"] != share_id])
 
 def _conn(cfg):
-    c = SMBConnection(cfg["username"], cfg["password"], "sagedrive", cfg["host"], use_ntlm_v2=True)
-    c.connect(cfg["host"], cfg["port"])
+    c = SMBConnection(cfg["username"], cfg["password"], "sagedrive", cfg["host"],
+    use_ntlm_v2=True, is_direct_tcp=True,
+    sign_options=SMBConnection.SIGN_WHEN_SUPPORTED)
     return c
 
 def _cfg(share_id):
