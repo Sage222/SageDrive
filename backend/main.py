@@ -98,13 +98,18 @@ def smb_serve(share_id):
     try:
         tmp_path, filename, size = smb_manager.retrieve_to_tmpfile(share_id, path)
         mime = mimetypes.guess_type(filename)[0] or "application/octet-stream"
-        return send_file(
+        resp = send_file(
             tmp_path,
             mimetype=mime,
             as_attachment=force_download,
             download_name=filename,
-            conditional=False,
+            conditional=True,
+            etag=False,
+            max_age=0,
         )
+        resp.headers["Accept-Ranges"] = "bytes"
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

@@ -369,6 +369,7 @@ let PATH  = '/';    // smb path
 let STACK = [];     // gdrive [{id,name}]
 let VIEW  = 'list'; // list|grid
 let SHARES = [];
+let BREADCRUMBS = [];
 let GDS   = {configured:false, authenticated:false};
 
 // ═══════════════════════════════════════════════════════════════
@@ -518,13 +519,11 @@ async function loadSMB() {
 
 function smbBC() {
   const parts = PATH.split('/').filter(Boolean);
-  const crumbs = [{name: DRIVE.name, click: ()=>{ PATH='/'; loadSMB(); }}];
+  const crumbs = [{name: DRIVE.name, target: '/'}];
   let built = '';
   for (let i=0; i<parts.length; i++) {
     built += '/' + parts[i];
-    const cap = built;
-    const isLast = i===parts.length-1;
-    crumbs.push({name:parts[i], click: isLast ? null : ()=>{ PATH=cap; loadSMB(); }});
+    crumbs.push({name:parts[i], target: built});
   }
   return crumbs;
 }
@@ -552,7 +551,7 @@ async function loadGD() {
 function gdBC() {
   return STACK.map((s,i) => ({
     name: s.name,
-    click: i<STACK.length-1 ? ()=>{ STACK=STACK.slice(0,i+1); loadGD(); } : null
+    index: i
   }));
 }
 
@@ -1068,14 +1067,28 @@ function showErr(msg) {
   lucide.createIcons();
 }
 function setBC(crumbs) {
+  BREADCRUMBS = crumbs;
   document.getElementById('breadcrumb').innerHTML = crumbs.map((c,i)=>{
     const last = i===crumbs.length-1;
     const sep  = i>0 ? `<span class="bc-sep">/</span>` : '';
-    const cls  = last||!c.click ? 'bc-seg current' : 'bc-seg';
-    const fn   = c.click ? `onclick="(${c.click.toString()})()"` : '';
+    const cls  = last ? 'bc-seg current' : 'bc-seg';
+    const fn   = last ? '' : `onclick="bcGo(${i})"`;
     return `${sep}<span class="${cls}" ${fn}>${esc(c.name)}</span>`;
   }).join('');
 }
+
+function bcGo(i) {
+  const c = BREADCRUMBS[i];
+  if (!c) return;
+  if (DRIVE?.type === 'smb') {
+    PATH = c.target;
+    loadSMB();
+  } else if (DRIVE?.type === 'gdrive') {
+    STACK = STACK.slice(0, c.index + 1);
+    loadGD();
+  }
+}
+
 function setActions(html) {
   document.getElementById('topbar-right').innerHTML = html;
   lucide.createIcons();
