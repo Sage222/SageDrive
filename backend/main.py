@@ -76,11 +76,9 @@ def smb_browse(share_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.get("/api/smb/download/<share_id>")
 @app.route('/api/smb/download/<share_id>')
-@require_auth
+@auth.require_auth
 def smb_download(share_id):
-    import mimetypes
     path = request.args.get('path', '')
     filename = path.split('/')[-1]
     mime = mimetypes.guess_type(filename)[0] or 'application/octet-stream'
@@ -97,8 +95,6 @@ def smb_download(share_id):
         )
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 @app.post("/api/smb/upload/<share_id>")
 @auth.require_auth
