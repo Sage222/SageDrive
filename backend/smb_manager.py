@@ -1,4 +1,4 @@
-import json, os, io, socket
+import json, os, io, socket, tempfile
 from pathlib import Path
 from smb.SMBConnection import SMBConnection
 
@@ -28,8 +28,12 @@ def _resolve(host):
 def _conn(cfg):
     host = cfg["host"]
     port = int(cfg.get("port", 445))
-    c = SMBConnection(cfg["username"], cfg["password"], "SAGEDRIVE", _resolve(host),
-        use_ntlm_v2=True, is_direct_tcp=(port == 445))
+    c = SMBConnection(
+        cfg["username"], cfg["password"],
+        "SAGEDRIVE", _resolve(host),
+        use_ntlm_v2=True,
+        is_direct_tcp=(port == 445),
+    )
     if not c.connect(host, port):
         raise ConnectionError(f"SMB connect failed for {host}:{port}")
     return c
@@ -49,31 +53,35 @@ def browse(share_id, path="/"):
                 for e in c.listPath(cfg["share"], path) if e.filename not in (".", "..")]
     finally: c.close()
 
-def stream_file(share_id, path, chunk_size=2*1024*1024):
+def get_file_size(share_id, path):
     cfg = _cfg(share_id)
-    host = cfg["host"]
-    port = int(cfg.get("port", 445))
-    c = SMBConnection(cfg["username"], cfg["password"], "SAGEDRIVE", _resolve(host),
-        use_ntlm_v2=True, is_direct_tcp=(port == 445))
-    if not c.connect(host, port):
-        raise ConnectionError(f"SMB connect failed for {host}:{port}")
-    # Get file size first
+    c = _conn(cfg)
     try:
         attrs = c.getAttributes(cfg["share"], path)
-        file_size = attrs.file_size
-    except Exception:
-        file_size = None
+        return attrs.file_size
+    finally:
+        c.close()
+
+def retrieve_to_tmpfile(share_id, path):
+    """
+    Download the full file from SMB into a temp file on disk.
+    pysmb handles all SMB2 framing. File never fully loaded into RAM.
+    Returns (tmp_path, filename, file_size). Caller must delete tmp_path.
+    """
+    cfg = _cfg(share_id)
+    c = _conn(cfg)
+    filename = path.split("/")[-1]
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix="_" + filename)
     try:
-        offset = 0
-        while file_size is None or offset < file_size:
-            buf = io.BytesIO()
-            bytes_read, _ = c.retrieveFileFromOffset(
-                cfg["share"], path, buf, offset, max_length=chunk_size)
-            data = buf.getvalue()
-            if bytes_read <= 0 or not data:
-                break
-            yield data
-            offset += bytes_read
+        c.retrieveFile(cfg["share"], path, tmp)
+        tmp.flush()
+        size = tmp.tell()
+        tmp.close()
+        return tmp.name, filename, size
+    except Exception:
+        tmp.close()
+        os.unlink(tmp.name)
+        raise
     finally:
         c.close()
 
@@ -96,14 +104,3 @@ def create_directory(share_id, path):
     c = _conn(cfg)
     try: c.createDirectory(cfg["share"], path)
     finally: c.close()
-
-def get_file_size(share_id, path):
-    cfg = _cfg(share_id)
-    c = _conn(cfg)
-    try:
-        attrs = c.getAttributes(cfg["share"], path)
-        return attrs.file_size
-    except Exception:
-        return None
-    finally:
-        c.close()

@@ -660,9 +660,29 @@ function listRow(f, type) {
   </div>`;
 }
 
+// File type classification for inline preview
+const INLINE_TYPES = {
+  video: ['mp4','mkv','webm','mov','avi','m4v','mpg','mpeg','ogv'],
+  audio: ['mp3','flac','wav','ogg','m4a','aac','opus','wma'],
+  image: ['jpg','jpeg','png','gif','webp','svg','bmp','ico','avif'],
+  text:  ['txt','md','json','xml','csv','log','yaml','yml','ini','conf','sh','py','js','ts','html','css'],
+  pdf:   ['pdf'],
+};
+function canPreview(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  return Object.values(INLINE_TYPES).flat().includes(ext);
+}
+
 function fclick(fj, type) {
   const f = JSON.parse(fj);
-  if (f.type !== 'folder') { dlFile(fj, type); return; }
+  if (f.type !== 'folder') {
+    if (canPreview(f.name)) {
+      openInline(fj, type);
+    } else {
+      dlFile(fj, type, true);
+    }
+    return;
+  }
   if (type==='smb') {
     PATH = f.path || (PATH.replace(/\/$/,'') + '/' + f.name);
     loadSMB();
@@ -672,17 +692,72 @@ function fclick(fj, type) {
   }
 }
 
-async function dlFile(fj, type) {
+function serveUrl(f, type, forceDownload=false) {
+  const dl = forceDownload ? '&dl=1' : '';
+  if (type==='smb')
+    return `/api/smb/serve/${DRIVE.id}?path=${encodeURIComponent(f.path)}${dl}`;
+  return `/api/gdrive/serve/${f.id}?${forceDownload?'dl=1':''}`;
+}
+
+function openInline(fj, type) {
+  const f = JSON.parse(fj);
+  // Build authenticated URL via blob — needed because fetch carries the auth header
+  fetchAndOpen(serveUrl(f, type, false), f.name);
+}
+
+async function fetchAndOpen(url, name) {
+  try {
+    toast('Opening ' + name + '…');
+    const r = await api(url);
+    const blob = await r.blob();
+    const objUrl = URL.createObjectURL(blob);
+    const ext = name.split('.').pop().toLowerCase();
+    // For video/audio use a simple in-page player modal
+    if ([...INLINE_TYPES.video, ...INLINE_TYPES.audio].includes(ext)) {
+      showMediaPlayer(objUrl, name, ext);
+    } else {
+      // Images, PDFs, text — open in new tab
+      window.open(objUrl, '_blank');
+    }
+  } catch(e) { toast('Failed to open: '+e.message,'err'); }
+}
+
+function showMediaPlayer(src, name, ext) {
+  const isVideo = INLINE_TYPES.video.includes(ext);
+  const tag = isVideo ? 'video' : 'audio';
+  const mime = isVideo ? 'video/' + (ext==='mkv'?'x-matroska':ext) : 'audio/' + ext;
+  showModal(`
+    <div class="modal-header">
+      <span class="modal-title" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:380px">${escHtml(name)}</span>
+      <button class="btn btn-ghost btn-icon" onclick="closeModal()">
+        <svg data-lucide="x" width="16" height="16"></svg></button>
+    </div>
+    <div class="modal-body" style="padding:var(--space-4)">
+      <${tag} controls autoplay style="width:100%;max-height:70vh;border-radius:var(--radius-md);background:#000">
+        <source src="${src}" type="${mime}">
+        Your browser does not support this format.
+      </${tag}>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Close</button>
+      <a class="btn btn-primary" href="${src}" download="${escHtml(name)}">
+        <svg data-lucide="download" width="14" height="14"></svg> Download
+      </a>
+    </div>
+  `);
+  lucide.createIcons();
+}
+
+async function dlFile(fj, type, forceDownload=true) {
   const f = JSON.parse(fj);
   try {
-    const r = await api(type==='smb'
-      ? `/api/smb/download/${DRIVE.id}?path=${encodeURIComponent(f.path)}`
-      : `/api/gdrive/download/${f.id}`);
+    toast('Downloading ' + f.name + '…');
+    const r = await api(serveUrl(f, type, true));
     const blob = await r.blob();
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = f.name; a.click();
-    toast('Downloading ' + f.name);
+    a.download = f.name;
+    a.click();
   } catch(e) { toast('Download failed: '+e.message,'err'); }
 }
 

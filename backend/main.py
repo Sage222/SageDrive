@@ -8,7 +8,7 @@ app = Flask(__name__, static_folder="static", static_url_path="")
 CORS(app, supports_credentials=True)
 auth.bootstrap_admin()
 
-# ── SPA catch-all ─────────────────────────────────────────────────────────────
+# ── SPA catch-all ──────────────────────────────────────────────────────────────
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def spa(path):
@@ -18,7 +18,7 @@ def spa(path):
         return send_from_directory(app.static_folder, path)
     return send_from_directory(app.static_folder, "index.html")
 
-# ── Auth ──────────────────────────────────────────────────────────────────────
+# ── Auth ───────────────────────────────────────────────────────────────────────
 @app.post("/api/auth/login")
 def api_login():
     body = request.get_json(force=True) or {}
@@ -41,7 +41,7 @@ def api_me():
     s = auth.get_session(t)
     return jsonify({"username": s["username"], "role": s["role"]})
 
-# ── SMB ───────────────────────────────────────────────────────────────────────
+# ── SMB ────────────────────────────────────────────────────────────────────────
 @app.get("/api/smb/shares")
 @auth.require_auth
 def smb_list_shares():
@@ -76,32 +76,32 @@ def smb_browse(share_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/smb/download/<share_id>')
+@app.get("/api/smb/serve/<share_id>")
 @auth.require_auth
-def smb_download(share_id):
-    path = request.args.get('path', '')
-    filename = path.split('/')[-1]
-    mime = mimetypes.guess_type(filename)[0] or 'application/octet-stream'
+def smb_serve(share_id):
+    """
+    Unified serve endpoint.
+    ?path=...        — required, SMB file path
+    ?dl=1            — optional, forces download (Content-Disposition: attachment)
+    Without ?dl=1    — inline serving for browser preview (video/audio/image/pdf/text)
+    Flow: SMB -> /tmp -> Flask send_file (OS sendfile, zero Python RAM) -> browser
+    """
+    path = request.args.get("path", "")
+    force_download = request.args.get("dl", "0") == "1"
+    if not path:
+        return jsonify({"error": "path required"}), 400
     try:
-        # Get file size for Content-Length header
-        size = smb_manager.get_file_size(share_id, path)
-        def generate():
-            yield from smb_manager.stream_file(share_id, path)
-        headers = {
-            'Content-Disposition': f'attachment; filename="{filename}"',
-            'X-Accel-Buffering': 'no',
-            'Cache-Control': 'no-store',
-        }
-        if size:
-            headers['Content-Length'] = str(size)
-        return app.response_class(
-            generate(),
+        tmp_path, filename, size = smb_manager.retrieve_to_tmpfile(share_id, path)
+        mime = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        return send_file(
+            tmp_path,
             mimetype=mime,
-            headers=headers,
-            direct_passthrough=True,
+            as_attachment=force_download,
+            download_name=filename,
+            conditional=False,
         )
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 @app.post("/api/smb/upload/<share_id>")
 @auth.require_auth
@@ -136,7 +136,7 @@ def smb_mkdir(share_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ── Google Drive ──────────────────────────────────────────────────────────────
+# ── Google Drive ───────────────────────────────────────────────────────────────
 @app.get("/api/gdrive/status")
 @auth.require_auth
 def gdrive_status():
@@ -177,13 +177,21 @@ def gdrive_files():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.get("/api/gdrive/download/<file_id>")
+@app.get("/api/gdrive/serve/<file_id>")
 @auth.require_auth
-def gdrive_download(file_id):
+def gdrive_serve(file_id):
+    """
+    Unified GDrive serve. ?dl=1 forces download, otherwise inline.
+    """
+    force_download = request.args.get("dl", "0") == "1"
     try:
         data, filename, mime = gdrive_manager.download_file(file_id)
-        return send_file(io.BytesIO(data), download_name=filename,
-                         as_attachment=True, mimetype=mime or "application/octet-stream")
+        return send_file(
+            io.BytesIO(data),
+            mimetype=mime or "application/octet-stream",
+            as_attachment=force_download,
+            download_name=filename,
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
