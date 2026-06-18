@@ -1,20 +1,14 @@
-"""main.py – Flask REST API for SageDrive."""
 import os, mimetypes, io
 from pathlib import Path
 from flask import Flask, request, jsonify, send_file, send_from_directory, redirect
 from flask_cors import CORS
+import auth, smb_manager, gdrive_manager
 
-import auth
-import smb_manager
-import gdrive_manager
-
-app = Flask(__name__, static_folder="../frontend/public", static_url_path="")
+app = Flask(__name__, static_folder="static", static_url_path="")
 CORS(app, supports_credentials=True)
-
 auth.bootstrap_admin()
 
-
-# ── SPA ────────────────────────────────────────────────────────────────────────
+# ── SPA catch-all ─────────────────────────────────────────────────────────────
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def spa(path):
@@ -24,63 +18,54 @@ def spa(path):
         return send_from_directory(app.static_folder, path)
     return send_from_directory(app.static_folder, "index.html")
 
-
-# ── Auth ───────────────────────────────────────────────────────────────────────
+# ── Auth ──────────────────────────────────────────────────────────────────────
 @app.post("/api/auth/login")
 def api_login():
-    body  = request.get_json(force=True) or {}
-    token = auth.login(body.get("username", ""), body.get("password", ""))
+    body = request.get_json(force=True) or {}
+    token = auth.login(body.get("username",""), body.get("password",""))
     if token:
         return jsonify({"token": token})
     return jsonify({"error": "Invalid credentials"}), 401
 
-
 @app.post("/api/auth/logout")
 @auth.require_auth
 def api_logout():
-    t = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+    t = request.headers.get("Authorization","").removeprefix("Bearer ").strip()
     auth.logout(t)
     return jsonify({"ok": True})
-
 
 @app.get("/api/auth/me")
 @auth.require_auth
 def api_me():
-    t    = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
-    sess = auth.get_session(t)
-    return jsonify({"username": sess["username"], "role": sess["role"]})
+    t = request.headers.get("Authorization","").removeprefix("Bearer ").strip()
+    s = auth.get_session(t)
+    return jsonify({"username": s["username"], "role": s["role"]})
 
-
-# ── SMB ────────────────────────────────────────────────────────────────────────
+# ── SMB ───────────────────────────────────────────────────────────────────────
 @app.get("/api/smb/shares")
 @auth.require_auth
 def smb_list_shares():
-    shares = smb_manager.list_shares()
-    safe   = [{k: v for k, v in s.items() if k != "password"} for s in shares]
-    return jsonify(safe)
-
+    return jsonify([{k:v for k,v in s.items() if k != "password"}
+                    for s in smb_manager.list_shares()])
 
 @app.post("/api/smb/shares")
 @auth.require_auth
 def smb_add_share():
-    body = request.get_json(force=True) or {}
+    b = request.get_json(force=True) or {}
     try:
         entry = smb_manager.add_share(
-            name=body["name"], host=body["host"], share=body["share"],
-            username=body.get("username", ""), password=body.get("password", ""),
-            port=int(body.get("port", 445)),
-        )
-        return jsonify({k: v for k, v in entry.items() if k != "password"}), 201
+            name=b["name"], host=b["host"], share=b["share"],
+            username=b.get("username",""), password=b.get("password",""),
+            port=int(b.get("port", 445)))
+        return jsonify({k:v for k,v in entry.items() if k != "password"}), 201
     except (KeyError, ValueError) as e:
         return jsonify({"error": str(e)}), 400
-
 
 @app.delete("/api/smb/shares/<share_id>")
 @auth.require_auth
 def smb_delete_share(share_id):
     smb_manager.remove_share(share_id)
     return jsonify({"ok": True})
-
 
 @app.get("/api/smb/browse/<share_id>")
 @auth.require_auth
@@ -91,11 +76,10 @@ def smb_browse(share_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @app.get("/api/smb/download/<share_id>")
 @auth.require_auth
 def smb_download(share_id):
-    path = request.args.get("path", "")
+    path = request.args.get("path","")
     try:
         data, filename = smb_manager.download_file(share_id, path)
         mime = mimetypes.guess_type(filename)[0] or "application/octet-stream"
@@ -104,12 +88,11 @@ def smb_download(share_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @app.post("/api/smb/upload/<share_id>")
 @auth.require_auth
 def smb_upload(share_id):
     dest = request.args.get("path", "/")
-    f    = request.files.get("file")
+    f = request.files.get("file")
     if not f:
         return jsonify({"error": "No file provided"}), 400
     try:
@@ -118,38 +101,32 @@ def smb_upload(share_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @app.delete("/api/smb/delete/<share_id>")
 @auth.require_auth
 def smb_delete_file(share_id):
-    body = request.get_json(force=True) or {}
+    b = request.get_json(force=True) or {}
     try:
-        smb_manager.delete_path(share_id, body.get("path", ""), body.get("is_dir", False))
+        smb_manager.delete_path(share_id, b.get("path",""), b.get("is_dir", False))
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 @app.post("/api/smb/mkdir/<share_id>")
 @auth.require_auth
 def smb_mkdir(share_id):
-    body = request.get_json(force=True) or {}
+    b = request.get_json(force=True) or {}
     try:
-        smb_manager.create_directory(share_id, body.get("path", ""))
+        smb_manager.create_directory(share_id, b.get("path",""))
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
-# ── Google Drive ───────────────────────────────────────────────────────────────
+# ── Google Drive ──────────────────────────────────────────────────────────────
 @app.get("/api/gdrive/status")
 @auth.require_auth
 def gdrive_status():
-    return jsonify({
-        "configured":    gdrive_manager.is_configured(),
-        "authenticated": gdrive_manager.is_authenticated(),
-    })
-
+    return jsonify({"configured": gdrive_manager.is_configured(),
+                    "authenticated": gdrive_manager.is_authenticated()})
 
 @app.get("/api/gdrive/auth")
 @auth.require_auth
@@ -158,10 +135,9 @@ def gdrive_auth():
         return jsonify({"error": "Google OAuth not configured"}), 400
     return jsonify({"url": gdrive_manager.get_auth_url()})
 
-
 @app.get("/api/gdrive/callback")
 def gdrive_callback():
-    code  = request.args.get("code")
+    code = request.args.get("code")
     state = request.args.get("state")
     if not code:
         return "Missing code", 400
@@ -171,13 +147,11 @@ def gdrive_callback():
     except Exception as e:
         return f"OAuth error: {e}", 500
 
-
 @app.delete("/api/gdrive/revoke")
 @auth.require_auth
 def gdrive_revoke():
     gdrive_manager.revoke()
     return jsonify({"ok": True})
-
 
 @app.get("/api/gdrive/files")
 @auth.require_auth
@@ -187,7 +161,6 @@ def gdrive_files():
         return jsonify(gdrive_manager.list_files(folder_id))
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 @app.get("/api/gdrive/download/<file_id>")
 @auth.require_auth
@@ -199,12 +172,11 @@ def gdrive_download(file_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @app.post("/api/gdrive/upload")
 @auth.require_auth
 def gdrive_upload():
-    folder_id = request.args.get("folder", "root")
-    f         = request.files.get("file")
+    folder_id = request.args.get("folder","root")
+    f = request.files.get("file")
     if not f:
         return jsonify({"error": "No file provided"}), 400
     try:
@@ -213,7 +185,6 @@ def gdrive_upload():
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 @app.delete("/api/gdrive/delete/<file_id>")
 @auth.require_auth
@@ -224,17 +195,15 @@ def gdrive_delete(file_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @app.post("/api/gdrive/mkdir")
 @auth.require_auth
 def gdrive_mkdir():
-    body = request.get_json(force=True) or {}
+    b = request.get_json(force=True) or {}
     try:
-        fid = gdrive_manager.create_folder(body.get("parent", "root"), body.get("name", "New Folder"))
+        fid = gdrive_manager.create_folder(b.get("parent","root"), b.get("name","New Folder"))
         return jsonify({"id": fid})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=False)
