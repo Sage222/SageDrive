@@ -96,3 +96,14 @@ def create_directory(share_id, path):
     c = _conn(cfg)
     try: c.createDirectory(cfg["share"], path)
     finally: c.close()
+
+def get_file_size(share_id, path):
+    cfg = _cfg(share_id)
+    c = _conn(cfg)
+    try:
+        attrs = c.getAttributes(cfg["share"], path)
+        return attrs.file_size
+    except Exception:
+        return None
+    finally:
+        c.close()

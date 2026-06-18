@@ -83,15 +83,22 @@ def smb_download(share_id):
     filename = path.split('/')[-1]
     mime = mimetypes.guess_type(filename)[0] or 'application/octet-stream'
     try:
+        # Get file size for Content-Length header
+        size = smb_manager.get_file_size(share_id, path)
         def generate():
             yield from smb_manager.stream_file(share_id, path)
+        headers = {
+            'Content-Disposition': f'attachment; filename="{filename}"',
+            'X-Accel-Buffering': 'no',
+            'Cache-Control': 'no-store',
+        }
+        if size:
+            headers['Content-Length'] = str(size)
         return app.response_class(
             generate(),
             mimetype=mime,
-            headers={
-                'Content-Disposition': f'attachment; filename="{filename}"',
-                'X-Accel-Buffering': 'no',
-            }
+            headers=headers,
+            direct_passthrough=True,
         )
     except Exception as e:
         return jsonify({'error': str(e)}), 500
