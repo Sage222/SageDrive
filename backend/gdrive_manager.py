@@ -8,53 +8,100 @@ from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/app/data"))
 CREDS_FILE = DATA_DIR / "gdrive_token.json"
-CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
-CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
-REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "http://localhost:8080/api/gdrive/callback")
+CONFIG_FILE = DATA_DIR / "gdrive_client.json"
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 
-def is_configured(): return bool(CLIENT_ID and CLIENT_SECRET)
+def _env_defaults():
+    return {
+        "client_id": os.environ.get("GOOGLE_CLIENT_ID", ""),
+        "client_secret": os.environ.get("GOOGLE_CLIENT_SECRET", ""),
+        "redirect_uri": os.environ.get("GOOGLE_REDIRECT_URI", "http://localhost:8080/api/gdrive/callback"),
+    }
+
+def get_config():
+    cfg = _env_defaults()
+    if CONFIG_FILE.exists():
+        try:
+            stored = json.loads(CONFIG_FILE.read_text())
+            cfg["client_id"] = stored.get("client_id", cfg["client_id"])
+            cfg["client_secret"] = stored.get("client_secret", cfg["client_secret"])
+            cfg["redirect_uri"] = stored.get("redirect_uri", cfg["redirect_uri"])
+        except Exception:
+            pass
+    return cfg
+
+def save_config(client_id, client_secret, redirect_uri):
+    cfg = {
+        "client_id": (client_id or "").strip(),
+        "client_secret": (client_secret or "").strip(),
+        "redirect_uri": (redirect_uri or "").strip() or "http://localhost:8080/api/gdrive/callback",
+    }
+    CONFIG_FILE.write_text(json.dumps(cfg, indent=2))
+    return cfg
+
+def is_configured():
+    cfg = get_config()
+    return bool(cfg["client_id"] and cfg["client_secret"] and cfg["redirect_uri"])
 
 def is_authenticated():
-    if not CREDS_FILE.exists(): return False
+    if not CREDS_FILE.exists():
+        return False
     c = _load_creds()
     return c is not None and (c.valid or bool(c.refresh_token))
 
 def _client_config():
-    return {"web": {"client_id": CLIENT_ID, "client_secret": CLIENT_SECRET,
-                    "redirect_uris": [REDIRECT_URI],
-                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                    "token_uri": "https://oauth2.googleapis.com/token"}}
+    cfg = get_config()
+    return {"web": {
+        "client_id": cfg["client_id"],
+        "client_secret": cfg["client_secret"],
+        "redirect_uris": [cfg["redirect_uri"]],
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+    }}
 
 def _load_creds():
-    if not CREDS_FILE.exists(): return None
+    if not CREDS_FILE.exists():
+        return None
     d = json.loads(CREDS_FILE.read_text())
-    c = Credentials(token=d.get("token"), refresh_token=d.get("refresh_token"),
-                    token_uri=d.get("token_uri","https://oauth2.googleapis.com/token"),
-                    client_id=d.get("client_id", CLIENT_ID),
-                    client_secret=d.get("client_secret", CLIENT_SECRET),
-                    scopes=d.get("scopes", SCOPES))
+    cfg = get_config()
+    c = Credentials(
+        token=d.get("token"),
+        refresh_token=d.get("refresh_token"),
+        token_uri=d.get("token_uri", "https://oauth2.googleapis.com/token"),
+        client_id=d.get("client_id", cfg["client_id"]),
+        client_secret=d.get("client_secret", cfg["client_secret"]),
+        scopes=d.get("scopes", SCOPES),
+    )
     if not c.valid and c.refresh_token:
-        c.refresh(Request()); _save_creds(c)
+        c.refresh(Request())
+        _save_creds(c)
     return c if c.valid else None
 
 def _save_creds(c):
-    CREDS_FILE.write_text(json.dumps({"token": c.token, "refresh_token": c.refresh_token,
-        "token_uri": c.token_uri, "client_id": c.client_id,
-        "client_secret": c.client_secret, "scopes": list(c.scopes or SCOPES)}))
+    CREDS_FILE.write_text(json.dumps({
+        "token": c.token,
+        "refresh_token": c.refresh_token,
+        "token_uri": c.token_uri,
+        "client_id": c.client_id,
+        "client_secret": c.client_secret,
+        "scopes": list(c.scopes or SCOPES),
+    }, indent=2))
 
 def _svc():
     c = _load_creds()
-    if not c: raise RuntimeError("Not authenticated with Google Drive")
+    if not c:
+        raise RuntimeError("Not authenticated with Google Drive")
     return build("drive", "v3", credentials=c)
 
 def get_auth_url():
-    flow = Flow.from_client_config(_client_config(), scopes=SCOPES, redirect_uri=REDIRECT_URI)
+    cfg = get_config()
+    flow = Flow.from_client_config(_client_config(), scopes=SCOPES, redirect_uri=cfg["redirect_uri"])
     url, _ = flow.authorization_url(access_type="offline", prompt="consent")
     return url
 
 def handle_callback(code, state):
-    flow = Flow.from_client_config(_client_config(), scopes=SCOPES, redirect_uri=REDIRECT_URI)
+    cfg = get_config()
+    flow = Flow.from_client_config(_client_config(), scopes=SCOPES, redirect_uri=cfg["redirect_uri"])
     flow.fetch_token(code=code)
     _save_creds(flow.credentials)
 
@@ -65,14 +112,19 @@ def list_files(folder_id="root"):
     res = _svc().files().list(
         q=f"'{folder_id}' in parents and trashed=false",
         fields="files(id,name,mimeType,size,modifiedTime,parents)",
-        pageSize=200).execute()
+        pageSize=200
+    ).execute()
     out = []
     for f in res.get("files", []):
         is_folder = f["mimeType"] == "application/vnd.google-apps.folder"
-        out.append({"id": f["id"], "name": f["name"],
-                    "type": "folder" if is_folder else "file",
-                    "size": int(f.get("size", 0)), "modified": f.get("modifiedTime",""),
-                    "mimeType": f["mimeType"]})
+        out.append({
+            "id": f["id"],
+            "name": f["name"],
+            "type": "folder" if is_folder else "file",
+            "size": int(f.get("size", 0)),
+            "modified": f.get("modifiedTime", ""),
+            "mimeType": f["mimeType"],
+        })
     return out
 
 def download_file(file_id):
@@ -88,22 +140,33 @@ def download_file(file_id):
             "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     }
     buf = io.BytesIO()
-    req = svc.files().export_media(fileId=file_id, mimeType=export_map[mime])           if mime in export_map else svc.files().get_media(fileId=file_id)
+    req = svc.files().export_media(fileId=file_id, mimeType=export_map[mime]) \
+        if mime in export_map else svc.files().get_media(fileId=file_id)
     dl = MediaIoBaseDownload(buf, req)
     done = False
-    while not done: _, done = dl.next_chunk()
+    while not done:
+        _, done = dl.next_chunk()
     return buf.getvalue(), name, mime
 
 def upload_file(parent_id, filename, data, mime_type="application/octet-stream"):
     svc = _svc()
     media = MediaIoBaseUpload(io.BytesIO(data), mimetype=mime_type, resumable=True)
-    svc.files().create(body={"name": filename, "parents": [parent_id]},
-                       media_body=media, fields="id").execute()
+    svc.files().create(
+        body={"name": filename, "parents": [parent_id]},
+        media_body=media,
+        fields="id"
+    ).execute()
 
 def delete_file(file_id):
     _svc().files().delete(fileId=file_id).execute()
 
 def create_folder(parent_id, name):
-    f = _svc().files().create(body={"name": name, "parents": [parent_id],
-        "mimeType": "application/vnd.google-apps.folder"}, fields="id").execute()
+    f = _svc().files().create(
+        body={
+            "name": name,
+            "parents": [parent_id],
+            "mimeType": "application/vnd.google-apps.folder",
+        },
+        fields="id"
+    ).execute()
     return f["id"]

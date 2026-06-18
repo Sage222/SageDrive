@@ -8,7 +8,7 @@ app = Flask(__name__, static_folder="static", static_url_path="")
 CORS(app, supports_credentials=True)
 auth.bootstrap_admin()
 
-# ── SPA catch-all ──────────────────────────────────────────────────────────────
+# ── SPA catch-all ─────────────────────────────────────────────────────────────
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def spa(path):
@@ -18,26 +18,21 @@ def spa(path):
         return send_from_directory(app.static_folder, path)
     return send_from_directory(app.static_folder, "index.html")
 
-# ── Auth ───────────────────────────────────────────────────────────────────────
+# ── Auth ──────────────────────────────────────────────────────────────────────
 @app.post("/api/auth/login")
 def api_login():
     body = request.get_json(force=True) or {}
     token = auth.login(body.get("username",""), body.get("password",""))
     if token:
-        resp = jsonify({"token": token})
-        resp.set_cookie("sd_token", token, httponly=True, samesite="Strict", max_age=auth.SESSION_TTL)
-        return resp
+        return jsonify({"token": token})
     return jsonify({"error": "Invalid credentials"}), 401
 
 @app.post("/api/auth/logout")
 @auth.require_auth
 def api_logout():
     t = request.headers.get("Authorization","").removeprefix("Bearer ").strip()
-    if not t: t = request.cookies.get("sd_token", "")
     auth.logout(t)
-    resp = jsonify({"ok": True})
-    resp.set_cookie("sd_token", "", expires=0)
-    return resp
+    return jsonify({"ok": True})
 
 @app.get("/api/auth/me")
 @auth.require_auth
@@ -46,7 +41,7 @@ def api_me():
     s = auth.get_session(t)
     return jsonify({"username": s["username"], "role": s["role"]})
 
-# ── SMB ────────────────────────────────────────────────────────────────────────
+# ── SMB ───────────────────────────────────────────────────────────────────────
 @app.get("/api/smb/shares")
 @auth.require_auth
 def smb_list_shares():
@@ -81,35 +76,15 @@ def smb_browse(share_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.get("/api/smb/serve/<share_id>")
+@app.get("/api/smb/download/<share_id>")
 @auth.require_auth
-def smb_serve(share_id):
-    """
-    Unified serve endpoint.
-    ?path=...        — required, SMB file path
-    ?dl=1            — optional, forces download (Content-Disposition: attachment)
-    Without ?dl=1    — inline serving for browser preview (video/audio/image/pdf/text)
-    Flow: SMB -> /tmp -> Flask send_file (OS sendfile, zero Python RAM) -> browser
-    """
-    path = request.args.get("path", "")
-    force_download = request.args.get("dl", "0") == "1"
-    if not path:
-        return jsonify({"error": "path required"}), 400
+def smb_download(share_id):
+    path = request.args.get("path","")
     try:
-        tmp_path, filename, size = smb_manager.retrieve_to_tmpfile(share_id, path)
+        data, filename = smb_manager.download_file(share_id, path)
         mime = mimetypes.guess_type(filename)[0] or "application/octet-stream"
-        resp = send_file(
-            tmp_path,
-            mimetype=mime,
-            as_attachment=force_download,
-            download_name=filename,
-            conditional=True,
-            etag=False,
-            max_age=0,
-        )
-        resp.headers["Accept-Ranges"] = "bytes"
-        resp.headers["Cache-Control"] = "no-store"
-        return resp
+        return send_file(io.BytesIO(data), download_name=filename,
+                         as_attachment=True, mimetype=mime)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -146,12 +121,28 @@ def smb_mkdir(share_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# ── Google Drive ───────────────────────────────────────────────────────────────
+# ── Google Drive ──────────────────────────────────────────────────────────────
 @app.get("/api/gdrive/status")
 @auth.require_auth
 def gdrive_status():
     return jsonify({"configured": gdrive_manager.is_configured(),
                     "authenticated": gdrive_manager.is_authenticated()})
+
+@app.get("/api/gdrive/config")
+@auth.require_auth
+def gdrive_get_config():
+    return jsonify(gdrive_manager.get_config())
+
+@app.post("/api/gdrive/config")
+@auth.require_auth
+def gdrive_save_config():
+    b = request.get_json(force=True) or {}
+    cfg = gdrive_manager.save_config(
+        b.get("client_id", ""),
+        b.get("client_secret", ""),
+        b.get("redirect_uri", "")
+    )
+    return jsonify({"ok": True, "configured": gdrive_manager.is_configured()})
 
 @app.get("/api/gdrive/auth")
 @auth.require_auth
@@ -187,21 +178,13 @@ def gdrive_files():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.get("/api/gdrive/serve/<file_id>")
+@app.get("/api/gdrive/download/<file_id>")
 @auth.require_auth
-def gdrive_serve(file_id):
-    """
-    Unified GDrive serve. ?dl=1 forces download, otherwise inline.
-    """
-    force_download = request.args.get("dl", "0") == "1"
+def gdrive_download(file_id):
     try:
         data, filename, mime = gdrive_manager.download_file(file_id)
-        return send_file(
-            io.BytesIO(data),
-            mimetype=mime or "application/octet-stream",
-            as_attachment=force_download,
-            download_name=filename,
-        )
+        return send_file(io.BytesIO(data), download_name=filename,
+                         as_attachment=True, mimetype=mime or "application/octet-stream")
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
