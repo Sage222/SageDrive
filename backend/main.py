@@ -24,15 +24,20 @@ def api_login():
     body = request.get_json(force=True) or {}
     token = auth.login(body.get("username",""), body.get("password",""))
     if token:
-        return jsonify({"token": token})
+        resp = jsonify({"token": token})
+        resp.set_cookie("sd_token", token, httponly=True, samesite="Strict", max_age=auth.SESSION_TTL)
+        return resp
     return jsonify({"error": "Invalid credentials"}), 401
 
 @app.post("/api/auth/logout")
 @auth.require_auth
 def api_logout():
     t = request.headers.get("Authorization","").removeprefix("Bearer ").strip()
+    if not t: t = request.cookies.get("sd_token", "")
     auth.logout(t)
-    return jsonify({"ok": True})
+    resp = jsonify({"ok": True})
+    resp.set_cookie("sd_token", "", expires=0)
+    return resp
 
 @app.get("/api/auth/me")
 @auth.require_auth

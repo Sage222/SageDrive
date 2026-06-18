@@ -45,6 +45,7 @@ def require_auth(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
         token = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+        if not token: token = request.cookies.get("sd_token", "")
         if not get_session(token):
             return jsonify({"error": "Unauthorised"}), 401
         return f(*args, **kwargs)

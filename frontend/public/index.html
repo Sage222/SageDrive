@@ -383,7 +383,7 @@ async function api(path, opts={}) {
     delete opts.json;
   }
   const r = await fetch(path, {...opts, headers:h});
-  if (r.status === 401) { doLogout(); throw new Error('Session expired'); }
+  if (r.status === 401) { doLogout(false); throw new Error('Session expired'); }
   return r;
 }
 async function apiJ(path, opts={}) {
@@ -416,7 +416,7 @@ document.getElementById('login-form').onsubmit = async e => {
   }
 };
 
-async function doLogout() {
+async function doLogout(callApi=true) {
   try { await api('/api/auth/logout', {method:'POST'}); } catch(_){}
   TOKEN = null; sessionStorage.removeItem('sd_tok');
   document.getElementById('app').style.display = 'none';
@@ -701,25 +701,13 @@ function serveUrl(f, type, forceDownload=false) {
 
 function openInline(fj, type) {
   const f = JSON.parse(fj);
-  // Build authenticated URL via blob — needed because fetch carries the auth header
-  fetchAndOpen(serveUrl(f, type, false), f.name);
-}
-
-async function fetchAndOpen(url, name) {
-  try {
-    toast('Opening ' + name + '…');
-    const r = await api(url);
-    const blob = await r.blob();
-    const objUrl = URL.createObjectURL(blob);
-    const ext = name.split('.').pop().toLowerCase();
-    // For video/audio use a simple in-page player modal
-    if ([...INLINE_TYPES.video, ...INLINE_TYPES.audio].includes(ext)) {
-      showMediaPlayer(objUrl, name, ext);
-    } else {
-      // Images, PDFs, text — open in new tab
-      window.open(objUrl, '_blank');
-    }
-  } catch(e) { toast('Failed to open: '+e.message,'err'); }
+  const url = serveUrl(f, type, false);
+  const ext = f.name.split('.').pop().toLowerCase();
+  if ([...INLINE_TYPES.video, ...INLINE_TYPES.audio].includes(ext)) {
+    showMediaPlayer(url, f.name, ext);
+  } else {
+    window.open(url, '_blank');
+  }
 }
 
 function showMediaPlayer(src, name, ext) {
@@ -728,21 +716,15 @@ function showMediaPlayer(src, name, ext) {
   const mime = isVideo ? 'video/' + (ext==='mkv'?'x-matroska':ext) : 'audio/' + ext;
   showModal(`
     <div class="modal-header">
-      <span class="modal-title" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:380px">${escHtml(name)}</span>
+      <span class="modal-title" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:380px">${esc(name)}</span>
       <button class="btn btn-ghost btn-icon" onclick="closeModal()">
         <svg data-lucide="x" width="16" height="16"></svg></button>
     </div>
-    <div class="modal-body" style="padding:var(--space-4)">
-      <${tag} controls autoplay style="width:100%;max-height:70vh;border-radius:var(--radius-md);background:#000">
+    <div class="modal-body" style="padding:var(--space-4);text-align:center;background:#000;border-radius:0 0 var(--radius-xl) var(--radius-xl)">
+      <${tag} controls autoplay style="width:100%;max-height:70vh;outline:none;">
         <source src="${src}" type="${mime}">
         Your browser does not support this format.
       </${tag}>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal()">Close</button>
-      <a class="btn btn-primary" href="${src}" download="${escHtml(name)}">
-        <svg data-lucide="download" width="14" height="14"></svg> Download
-      </a>
     </div>
   `);
   lucide.createIcons();
@@ -750,15 +732,14 @@ function showMediaPlayer(src, name, ext) {
 
 async function dlFile(fj, type, forceDownload=true) {
   const f = JSON.parse(fj);
-  try {
-    toast('Downloading ' + f.name + '…');
-    const r = await api(serveUrl(f, type, true));
-    const blob = await r.blob();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = f.name;
-    a.click();
-  } catch(e) { toast('Download failed: '+e.message,'err'); }
+  const url = serveUrl(f, type, true);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = f.name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  toast('Downloading ' + f.name + '…');
 }
 
 async function rmFile(fj, type) {
