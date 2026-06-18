@@ -1,21 +1,25 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
-# Install Samba, Rclone, and FUSE
-RUN apt-get update && \
-    apt-get install -y samba rclone fuse3 && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# Install existing dependencies + Samba, Rclone, and FUSE
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    smbclient \
+    libsmbclient-dev \
+    gcc \
+    samba \
+    rclone \
+    fuse3 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Fix FUSE permissions in Docker
+# Fix FUSE permissions
 RUN sed -i 's/#user_allow_other/user_allow_other/' /etc/fuse.conf
 
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY backend/requirements.txt ./backend/
+RUN pip install --no-cache-dir -r backend/requirements.txt
 
 COPY . .
 
-# Copy our custom Samba config
+# Move Samba config
 RUN cp smb.conf /etc/samba/smb.conf
 
 EXPOSE 8080 445

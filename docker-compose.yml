@@ -1,18 +1,28 @@
+version: "3.9"
 services:
   sagedrive:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: sagedrive
     restart: unless-stopped
     ports:
       - "8080:8080"
-      - "445:445"   # SMB Port
+      - "445:445"
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-changeme}
+      - ADMIN_USER=${ADMIN_USER:-admin}
+      - ADMIN_PASS=${ADMIN_PASS:-changeme}
+      - SESSION_TTL_HOURS=${SESSION_TTL_HOURS:-24}
     volumes:
-      - ./data:/app/data
-      - ./frontend/public:/app/frontend/public
-    # CRITICAL: These privileges are required for Rclone to mount FUSE filesystems inside Docker
+      - sagedrive-data:/app/data
+    # CRITICAL: These privileges are required for FUSE to work
     cap_add:
       - SYS_ADMIN
     devices:
       - /dev/fuse
     security_opt:
       - apparmor:unconfined
+
+volumes:
+  sagedrive-data:

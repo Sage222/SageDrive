@@ -10,7 +10,7 @@ try:
         'access_token': t.get('token', ''),
         'token_type': 'Bearer',
         'refresh_token': t.get('refresh_token', ''),
-        'expiry': '2020-01-01T00:00:00Z' # Force refresh immediately
+        'expiry': '2020-01-01T00:00:00Z'
     }
     conf = f\"\"\"[gdrive]
 type = drive
@@ -31,7 +31,6 @@ except Exception as e:
 mkdir -p /mnt/gdrive
 if [ -f /root/.config/rclone/rclone.conf ]; then
     echo "Mounting Google Drive via FUSE..."
-    # --daemon puts it in the background, --allow-other lets Samba read it
     rclone mount gdrive: /mnt/gdrive --daemon --allow-other --vfs-cache-mode writes
 fi
 
@@ -41,4 +40,5 @@ smbd -D
 
 # D) Start the original SageDrive Python backend
 echo "Starting SageDrive Web Interface..."
+cd /app/backend
 exec python3 main.py
