@@ -7,9 +7,7 @@ SHARES_FILE = DATA_DIR / "smb_shares.json"
 
 def _load(): return json.loads(SHARES_FILE.read_text()) if SHARES_FILE.exists() else []
 def _save(s): SHARES_FILE.write_text(json.dumps(s, indent=2))
-
-def list_shares():
-    return _load()
+def list_shares(): return _load()
 
 def add_share(name, host, share, username, password, port=445):
     sid = name.lower().replace(" ", "_")
@@ -23,25 +21,17 @@ def add_share(name, host, share, username, password, port=445):
 def remove_share(share_id):
     _save([s for s in _load() if s["id"] != share_id])
 
+def _resolve(host):
+    try: return socket.gethostbyaddr(host)[0].split(".")[0].upper()
+    except Exception: return host.split(".")[0].upper()
+
 def _conn(cfg):
     host = cfg["host"]
     port = int(cfg.get("port", 445))
-    try:
-        remote_name = socket.gethostbyaddr(host)[0].split(".")[0].upper()
-    except Exception:
-        remote_name = host.split(".")[0].upper()
-    c = SMBConnection(
-        cfg["username"], cfg["password"],
-        "SAGEDRIVE", remote_name,
-        use_ntlm_v2=True,
-        is_direct_tcp=(port == 445),
-    )
-    connected = c.connect(host, port)
-    if not connected:
-        raise ConnectionError(
-            f"SMB connect failed for {host}:{port} (remote_name={remote_name!r}). "
-            "Check credentials, share name, and that SMB2/3 is enabled."
-        )
+    c = SMBConnection(cfg["username"], cfg["password"], "SAGEDRIVE", _resolve(host),
+        use_ntlm_v2=True, is_direct_tcp=(port == 445))
+    if not c.connect(host, port):
+        raise ConnectionError(f"SMB connect failed for {host}:{port}")
     return c
 
 def _cfg(share_id):
@@ -59,14 +49,27 @@ def browse(share_id, path="/"):
                 for e in c.listPath(cfg["share"], path) if e.filename not in (".", "..")]
     finally: c.close()
 
-def download_file(share_id, path):
+def stream_file(share_id, path, chunk_size=2*1024*1024):
     cfg = _cfg(share_id)
-    c = _conn(cfg)
-    buf = io.BytesIO()
+    host = cfg["host"]
+    port = int(cfg.get("port", 445))
+    c = SMBConnection(cfg["username"], cfg["password"], "SAGEDRIVE", _resolve(host),
+        use_ntlm_v2=True, is_direct_tcp=(port == 445))
+    if not c.connect(host, port):
+        raise ConnectionError(f"SMB connect failed for {host}:{port}")
     try:
-        c.retrieveFile(cfg["share"], path, buf)
-        return buf.getvalue(), path.split("/")[-1]
-    finally: c.close()
+        offset = 0
+        while True:
+            buf = io.BytesIO()
+            bytes_read, _ = c.retrieveFileFromOffset(cfg["share"], path, buf, offset, max_length=chunk_size)
+            if bytes_read == 0:
+                break
+            yield buf.getvalue()
+            offset += bytes_read
+            if bytes_read < chunk_size:
+                break
+    finally:
+        c.close()
 
 def upload_file(share_id, dest_path, data):
     cfg = _cfg(share_id)
