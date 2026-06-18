@@ -77,14 +77,26 @@ def smb_browse(share_id):
         return jsonify({"error": str(e)}), 500
 
 @app.get("/api/smb/download/<share_id>")
-@auth.require_auth
+@app.route('/api/smb/download/<share_id>')
+@require_auth
 def smb_download(share_id):
-    path = request.args.get("path","")
+    import mimetypes
+    path = request.args.get('path', '')
+    filename = path.split('/')[-1]
+    mime = mimetypes.guess_type(filename)[0] or 'application/octet-stream'
     try:
-        data, filename = smb_manager.download_file(share_id, path)
-        mime = mimetypes.guess_type(filename)[0] or "application/octet-stream"
-        return send_file(io.BytesIO(data), download_name=filename,
-                         as_attachment=True, mimetype=mime)
+        def generate():
+            yield from smb_manager.stream_file(share_id, path)
+        return app.response_class(
+            generate(),
+            mimetype=mime,
+            headers={
+                'Content-Disposition': f'attachment; filename="{filename}"',
+                'X-Accel-Buffering': 'no',
+            }
+        )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
