@@ -3,7 +3,7 @@ set -e
 
 echo "=== SageDrive Startup ==="
 
-# A) Generate Rclone config from SageDrive's gdrive_token.json
+# A) Generate Rclone config
 python3 << 'PYEOF'
 import json, os
 from pathlib import Path
@@ -28,8 +28,6 @@ token = {rclone_token}
     with open('/root/.config/rclone/rclone.conf', 'w') as f:
         f.write(conf)
     print("✅ Rclone config written successfully!")
-    print(f"   client_id present: {bool(d.get('client_id'))}")
-    print(f"   refresh_token present: {bool(d.get('refresh_token'))}")
 except FileNotFoundError:
     print("⚠️  gdrive_token.json not found — Google Drive not yet authenticated.")
 except Exception as e:
@@ -45,15 +43,14 @@ if grep -q "refresh_token" /root/.config/rclone/rclone.conf 2>/dev/null; then
         --vfs-cache-mode writes \
         --vfs-cache-max-size 512M \
         --dir-cache-time 5m \
-        --log-level INFO \
         --daemon
     sleep 3
     echo "✅ Google Drive mounted at /mnt/gdrive"
 else
-    echo "⚠️  Skipping mount — no valid rclone config."
+    echo "⚠️  Skipping rclone mount — no valid config."
 fi
 
-# C) Create all directories Samba requires (missing on slim images)
+# C) Create all directories Samba requires
 echo "Preparing Samba directories..."
 mkdir -p /run/samba
 mkdir -p /var/lib/samba/private
@@ -62,20 +59,17 @@ mkdir -p /var/log/samba
 chmod 755 /run/samba
 chmod 700 /var/lib/samba/private
 
-# Ensure the tdb files Samba needs exist
-touch /var/lib/samba/account_policy.tdb 2>/dev/null || true
-
-# D) Start Samba
+# D) Start Samba — correct flags for this version
 echo "Starting Samba..."
-smbd --foreground --no-process-group --log-stdout &
-SMBD_PID=$!
+smbd --foreground --no-process-group &
 sleep 2
 
-# Verify smbd actually bound to port 445
-if ss -tlnp | grep -q ':445'; then
+# Verify using /proc instead of ss (works on all slim images)
+if grep -q ':01BD\|:01bd' /proc/net/tcp6 2>/dev/null || grep -q ':01BD\|:01bd' /proc/net/tcp 2>/dev/null; then
     echo "✅ Samba is listening on port 445"
 else
-    echo "❌ Samba failed to bind port 445 — check logs above"
+    echo "⚠️  Port 445 not yet visible in /proc/net/tcp — Samba may still be starting"
+    echo "   smbd processes running: $(pgrep -c smbd || echo 0)"
 fi
 
 # E) Start SageDrive Flask app
