@@ -4,7 +4,6 @@ set -e
 echo "=== SageDrive Startup ==="
 
 # A) Generate Rclone config from SageDrive's gdrive_token.json
-# gdrive_manager.py stores client_id, client_secret AND tokens all in one file
 python3 << 'PYEOF'
 import json, os
 from pathlib import Path
@@ -48,20 +47,38 @@ if grep -q "refresh_token" /root/.config/rclone/rclone.conf 2>/dev/null; then
         --dir-cache-time 5m \
         --log-level INFO \
         --daemon
-    sleep 2
+    sleep 3
     echo "✅ Google Drive mounted at /mnt/gdrive"
-    ls /mnt/gdrive | head -5 || echo "(empty or mounting...)"
 else
     echo "⚠️  Skipping mount — no valid rclone config."
 fi
 
-# C) Start Samba (foreground in background — correct Docker approach)
-echo "Starting Samba..."
-smbd --foreground --no-process-group &
-nmbd --foreground --no-process-group &
-echo "✅ Samba started"
+# C) Create all directories Samba requires (missing on slim images)
+echo "Preparing Samba directories..."
+mkdir -p /run/samba
+mkdir -p /var/lib/samba/private
+mkdir -p /var/cache/samba
+mkdir -p /var/log/samba
+chmod 755 /run/samba
+chmod 700 /var/lib/samba/private
 
-# D) Start SageDrive Flask app
+# Ensure the tdb files Samba needs exist
+touch /var/lib/samba/account_policy.tdb 2>/dev/null || true
+
+# D) Start Samba
+echo "Starting Samba..."
+smbd --foreground --no-process-group --log-stdout &
+SMBD_PID=$!
+sleep 2
+
+# Verify smbd actually bound to port 445
+if ss -tlnp | grep -q ':445'; then
+    echo "✅ Samba is listening on port 445"
+else
+    echo "❌ Samba failed to bind port 445 — check logs above"
+fi
+
+# E) Start SageDrive Flask app
 echo "Starting SageDrive web interface on :8080..."
 cd /app
 exec python3 main.py
