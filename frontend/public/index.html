@@ -358,6 +358,7 @@ let _viewMode  = 'list';
 let _shares    = [];
 let _gdStatus  = {configured:false, authenticated:false};
 let _gdConfig  = {client_id:'', client_secret:'', redirect_uri:''};
+let smbProxyCreds = {username:'sagedrive', configured:false};
 
 async function apiFetch(path, opts={}) {
   const headers = { ...(opts.headers||{}) };
@@ -890,7 +891,7 @@ async function renderSettings() {
       <div class="card-body" style="display:flex;flex-direction:column;gap:var(--space-4)">
         <p style="font-size:var(--text-sm);color:var(--color-text-muted)">
           Set the username and password Windows will use to connect to
-          <code style="font-family:var(--font-mono);font-size:var(--text-xs);background:var(--color-surface-offset);padding:2px 6px;border-radius:var(--radius-sm)">\\10.0.0.152\GoogleDrive</code>.
+          <code style="font-family:var(--font-mono);font-size:var(--text-xs);background:var(--color-surface-offset);padding:2px 6px;border-radius:var(--radius-sm)">&#92;&#92;10.0.0.152&#92;GoogleDrive</code>.
           After saving, reconnect from Windows with the new credentials.
         </p>
         <div class="form-row">
@@ -913,12 +914,12 @@ async function renderSettings() {
         <div style="background:var(--color-surface-offset);border-radius:var(--radius-md);padding:var(--space-3) var(--space-4);font-size:var(--text-xs);color:var(--color-text-muted)">
           <strong>Connect from Windows:</strong>
           Map a drive in PowerShell (run as Administrator):<br/>
-          <code style="font-family:var(--font-mono)">net use G: \\\\10.0.0.152\\GoogleDrive /user:${escHtml(smbProxyCreds.username)} * /persistent:yes</code>
+          <code style="font-family:var(--font-mono)">net use G: &#92;&#92;10.0.0.152&#92;GoogleDrive /user:${escHtml(smbProxyCreds.username)} * /persistent:yes</code>
         </div>
       </div>
     </div>
 
-  </div>\`;
+  </div>`;
   lucide.createIcons();
 }
 

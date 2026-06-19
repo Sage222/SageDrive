@@ -22,7 +22,10 @@ def spa(path):
 @app.post("/api/auth/login")
 def api_login():
     body = request.get_json(force=True) or {}
-    token = auth.login(body.get("username",""), body.get("password",""))
+    u = body.get("username","")
+    pw = body.get("password","")
+    print(f"LOGIN DEBUG username={u!r} pass_len={len(pw)} keys={list(body.keys())}", flush=True)
+    token = auth.login(u, pw)
     if token:
         return jsonify({"token": token})
     return jsonify({"error": "Invalid credentials"}), 401

@@ -16,6 +16,7 @@ services:
       - SESSION_TTL_HOURS=${SESSION_TTL_HOURS:-24}
     volumes:
       - sagedrive-data:/app/data
+      - ./frontend/public/index.html:/app/static/index.html
     # CRITICAL: These privileges are required for FUSE to work
     cap_add:
       - SYS_ADMIN
