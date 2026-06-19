@@ -879,9 +879,46 @@ async function renderSettings() {
           </button>` : ``}
         </div>
       </div>
+    <!-- SMB Proxy Credentials -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">SMB Proxy — Windows Credentials</span>
+        <span class="badge ${smbProxyCreds.configured ? 'badge-success' : 'badge-error'}">
+          ${smbProxyCreds.configured ? 'Configured' : 'Using defaults'}
+        </span>
+      </div>
+      <div class="card-body" style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <p style="font-size:var(--text-sm);color:var(--color-text-muted)">
+          Set the username and password Windows will use to connect to
+          <code style="font-family:var(--font-mono);font-size:var(--text-xs);background:var(--color-surface-offset);padding:2px 6px;border-radius:var(--radius-sm)">\\10.0.0.152\GoogleDrive</code>.
+          After saving, reconnect from Windows with the new credentials.
+        </p>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <input class="form-input" id="smb-proxy-user" type="text"
+                   value="${escHtml(smbProxyCreds.username)}" placeholder="sagedrive" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input class="form-input" id="smb-proxy-pass" type="password" placeholder="New password" />
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:var(--space-3)">
+          <button class="btn btn-primary btn-sm" onclick="saveSmbProxyCreds()">
+            <svg data-lucide="save" width="14" height="14"></svg> Save Credentials
+          </button>
+          <span id="smb-proxy-msg" style="font-size:var(--text-sm);color:var(--color-text-muted)"></span>
+        </div>
+        <div style="background:var(--color-surface-offset);border-radius:var(--radius-md);padding:var(--space-3) var(--space-4);font-size:var(--text-xs);color:var(--color-text-muted)">
+          <strong>Connect from Windows:</strong>
+          Map a drive in PowerShell (run as Administrator):<br/>
+          <code style="font-family:var(--font-mono)">net use G: \\\\10.0.0.152\\GoogleDrive /user:${escHtml(smbProxyCreds.username)} * /persistent:yes</code>
+        </div>
+      </div>
     </div>
 
-  </div>`;
+  </div>\`;
   lucide.createIcons();
 }
 
@@ -973,6 +1010,23 @@ async function saveGDConfig() {
     await refreshGDStatus();
     renderSettings();
   } catch(e) { toast('Save failed: ' + e.message, 'error'); }
+}
+
+async function saveSmbProxyCreds() {
+  const user = document.getElementById('smb-proxy-user').value.trim();
+  const pass = document.getElementById('smb-proxy-pass').value;
+  const msg  = document.getElementById('smb-proxy-msg');
+  if (!pass) { msg.style.color='var(--color-error)'; msg.textContent='Password is required'; return; }
+  try {
+    const r = await apiJSON('/api/smb/proxy-credentials', {method:'POST', json:{username:user, password:pass}});
+    msg.style.color = 'var(--color-success)';
+    msg.textContent = r.message || 'Saved!';
+    document.getElementById('smb-proxy-pass').value = '';
+    setTimeout(() => renderSettings(), 1500);
+  } catch(e) {
+    msg.style.color = 'var(--color-error)';
+    msg.textContent = 'Failed: ' + e.message;
+  }
 }
 
 async function connectGDrive() {

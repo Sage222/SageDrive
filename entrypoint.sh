@@ -50,29 +50,47 @@ else
     echo "⚠️  Skipping rclone mount — no valid config."
 fi
 
-# C) Create all directories Samba requires
+# C) Create Samba directories
 echo "Preparing Samba directories..."
-mkdir -p /run/samba
-mkdir -p /var/lib/samba/private
-mkdir -p /var/cache/samba
-mkdir -p /var/log/samba
+mkdir -p /run/samba /var/lib/samba/private /var/cache/samba /var/log/samba
 chmod 755 /run/samba
 chmod 700 /var/lib/samba/private
 
-# D) Start Samba — correct flags for this version
+# D) Create Samba user from saved credentials
+SMB_CREDS_FILE="/app/data/smb_proxy_credentials.json"
+SMB_USER="sagedrive"
+SMB_PASS="SageDrive123!"   # default fallback
+
+if [ -f "$SMB_CREDS_FILE" ]; then
+    SMB_USER=$(python3 -c "import json; d=json.load(open('$SMB_CREDS_FILE')); print(d.get('username','sagedrive'))")
+    SMB_PASS=$(python3 -c "import json; d=json.load(open('$SMB_CREDS_FILE')); print(d.get('password','SageDrive123!'))")
+    echo "✅ Loaded SMB credentials for user: $SMB_USER"
+else
+    echo "⚠️  No SMB credentials file found — using defaults (user: sagedrive, pass: SageDrive123!)"
+    echo "    → Go to SageDrive Settings → SMB Proxy to set your own credentials."
+fi
+
+# Create the group and OS user (suppress errors if already exists)
+groupadd -f sambausers
+id "$SMB_USER" &>/dev/null || useradd -M -s /sbin/nologin -G sambausers "$SMB_USER"
+usermod -aG sambausers "$SMB_USER" 2>/dev/null || true
+
+# Set the Samba password
+(echo "$SMB_PASS"; echo "$SMB_PASS") | smbpasswd -s -a "$SMB_USER"
+echo "✅ Samba user '$SMB_USER' configured"
+
+# E) Start Samba
 echo "Starting Samba..."
 smbd --foreground --no-process-group &
 sleep 2
 
-# Verify using /proc instead of ss (works on all slim images)
 if grep -q ':01BD\|:01bd' /proc/net/tcp6 2>/dev/null || grep -q ':01BD\|:01bd' /proc/net/tcp 2>/dev/null; then
     echo "✅ Samba is listening on port 445"
 else
-    echo "⚠️  Port 445 not yet visible in /proc/net/tcp — Samba may still be starting"
-    echo "   smbd processes running: $(pgrep -c smbd || echo 0)"
+    echo "⚠️  Samba may still be starting (pgrep: $(pgrep -c smbd || echo 0) smbd procs)"
 fi
 
-# E) Start SageDrive Flask app
+# F) Start SageDrive Flask app
 echo "Starting SageDrive web interface on :8080..."
 cd /app
 exec python3 main.py
