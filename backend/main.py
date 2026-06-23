@@ -1,4 +1,4 @@
-import os, mimetypes, io
+import os, json, mimetypes, io
 from pathlib import Path
 from flask import Flask, request, jsonify, send_file, send_from_directory, redirect
 from flask_cors import CORS
@@ -224,13 +224,10 @@ def gdrive_mkdir():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080, debug=False)
-
 
 # ── SMB Proxy Credentials ─────────────────────────────────────────────────────
 @app.get("/api/smb/proxy-credentials")
-@require_auth
+@auth.require_auth
 def get_smb_proxy_creds():
     creds_file = Path(os.environ.get("DATA_DIR", "/app/data")) / "smb_proxy_credentials.json"
     if creds_file.exists():
@@ -239,7 +236,7 @@ def get_smb_proxy_creds():
     return jsonify({"username": "sagedrive", "configured": False})
 
 @app.post("/api/smb/proxy-credentials")
-@require_auth
+@auth.require_auth
 def set_smb_proxy_creds():
     body = request.get_json(force=True) or {}
     username = (body.get("username") or "sagedrive").strip()
@@ -263,3 +260,6 @@ def set_smb_proxy_creds():
         return jsonify({"ok": True, "message": f"Credentials saved. Reconnect as '{username}'."})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080, debug=False)
