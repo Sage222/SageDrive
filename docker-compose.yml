@@ -1,4 +1,3 @@
-version: "3.9"
 services:
   sagedrive:
     build:
@@ -17,6 +16,7 @@ services:
     volumes:
       - sagedrive-data:/app/data
       - ./frontend/public/index.html:/app/static/index.html
+      - ./backend/main.py:/app/main.py
     # CRITICAL: These privileges are required for FUSE to work
     cap_add:
       - SYS_ADMIN
@@ -24,6 +24,10 @@ services:
       - /dev/fuse
     security_opt:
       - apparmor:unconfined
+    deploy:
+      resources:
+        limits:
+          memory: 256M
 
 volumes:
   sagedrive-data:
