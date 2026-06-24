@@ -2,6 +2,8 @@
 
 SageDrive is a self-hosted, browser-based file manager that gives you unified access to your SMB/NAS shares and Google Drive from a single clean interface.
 
+It also allows you to create a SMB share for your Google Drive essentially forming a SMB proxy of Google Drive for consumption of other devices.
+
 ---
 
 ## Features
