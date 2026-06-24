@@ -369,7 +369,8 @@ async function apiFetch(path, opts={}) {
     delete opts.json;
   }
   const r = await fetch(API + path, {...opts, headers});
-  if (r.status === 401) { doLogout(); throw new Error('Unauthorised'); }
+  if (r.status === 401 && _token) { doLogout(); throw new Error('Unauthorised'); }
+  if (r.status === 401 && !_token) { throw new Error('Invalid credentials'); }
   return r;
 }
 

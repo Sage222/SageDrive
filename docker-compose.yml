@@ -9,9 +9,9 @@ services:
       - "8080:8080"
       - "445:445"
     environment:
-      - SECRET_KEY=${SECRET_KEY:-changeme}
+      - SECRET_KEY=${SECRET_KEY}
       - ADMIN_USER=${ADMIN_USER:-admin}
-      - ADMIN_PASS=${ADMIN_PASS:-changeme}
+      - ADMIN_PASS=${ADMIN_PASS}
       - SESSION_TTL_HOURS=${SESSION_TTL_HOURS:-24}
     volumes:
       - sagedrive-data:/app/data

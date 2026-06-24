@@ -9,8 +9,8 @@ CORS(app, supports_credentials=True)
 auth.bootstrap_admin()
 
 # ── SPA catch-all ─────────────────────────────────────────────────────────────
-@app.route("/", defaults={"path": ""})
-@app.route("/<path:path>")
+@app.route("/", defaults={"path": ""}, methods=["GET"])
+@app.route("/<path:path>", methods=["GET"])
 def spa(path):
     static = Path(app.static_folder)
     target = static / path
