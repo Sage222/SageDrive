@@ -9,7 +9,6 @@ USERS_FILE = DATA_DIR / "users.json"
 SESSIONS: dict = {}
 SESSION_TTL = int(os.environ.get("SESSION_TTL_HOURS", "24")) * 3600
 
-
 def _load_users():
     return json.loads(USERS_FILE.read_text()) if USERS_FILE.exists() else {}
 
@@ -45,7 +44,10 @@ def require_auth(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
         token = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
-        if not token: token = request.cookies.get("sd_token", "")
+        if not token:
+            token = request.args.get("token", "").strip()
+        if not token:
+            token = request.cookies.get("sd_token", "")
         if not get_session(token):
             return jsonify({"error": "Unauthorised"}), 401
         return f(*args, **kwargs)

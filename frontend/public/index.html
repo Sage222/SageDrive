@@ -150,6 +150,10 @@
                     cursor:pointer;display:flex;flex-direction:column;align-items:center;
                     gap:var(--space-2);text-align:center;
                     transition:all var(--transition-interactive)}
+    .grid-dl-btn{position:absolute;top:var(--space-1);right:var(--space-1);
+                  opacity:0;transition:opacity var(--transition-interactive);
+                  background:var(--color-surface);border-radius:var(--radius-sm);padding:2px}
+    .file-item-grid:hover .grid-dl-btn{opacity:1}
     .file-item-grid:hover{background:var(--color-surface-offset);
                           box-shadow:var(--shadow-md);transform:translateY(-1px)}
     .file-item-list{display:flex;align-items:center;gap:var(--space-3);
@@ -369,8 +373,7 @@ async function apiFetch(path, opts={}) {
     delete opts.json;
   }
   const r = await fetch(API + path, {...opts, headers});
-  if (r.status === 401 && _token) { doLogout(); throw new Error('Unauthorised'); }
-  if (r.status === 401 && !_token) { throw new Error('Invalid credentials'); }
+  if (r.status === 401) { doLogout(); throw new Error('Unauthorised'); }
   return r;
 }
 
@@ -610,12 +613,16 @@ function fmtDate(ts) {
 
 function fileCardGrid(f, type) {
   const fj = escAttr(JSON.stringify(f));
-  return `<div class="file-item-grid" onclick="fileClick('${fj}','${type}')">
+  return `<div class="file-item-grid" style="position:relative" onclick="fileClick('${fj}','${type}')">
     <div class="file-icon-grid" style="${fileColorClass(f)}">
       <svg data-lucide="${fileIcon(f)}" width="24" height="24"></svg>
     </div>
     <span class="file-name" title="${escHtml(f.name)}">${escHtml(f.name)}</span>
     <span class="file-meta">${fmtSize(f.size)}</span>
+    ${f.type!=='folder'?`<button class="btn btn-ghost btn-icon btn-sm grid-dl-btn"
+        onclick="event.stopPropagation();dlFile('${fj}','${type}')" title="Download">
+        <svg data-lucide="download" width="13" height="13"></svg>
+      </button>`:''}
   </div>`;
 }
 
@@ -638,9 +645,63 @@ function fileCardList(f, type) {
   </div>`;
 }
 
+function _fileExt(name) {
+  var m = String(name || '').toLowerCase().match(/\.([^.]+)$/);
+  return m ? m[1] : '';
+}
+function isVideoFile(name) {
+  return ['mp4','webm','ogg','mov','m4v','mkv'].indexOf(_fileExt(name)) !== -1;
+}
+function isAudioFile(name) {
+  return ['mp3','wav','ogg','m4a','aac','flac','opus'].indexOf(_fileExt(name)) !== -1;
+}
+function mediaApiUrl(f, type) {
+  var t = encodeURIComponent(_token || '');
+  if (type === 'smb') {
+    return '/api/smb/download/' + _activeDrive.id
+      + '?path=' + encodeURIComponent(f.path) + '&token=' + t;
+  }
+  return '/api/gdrive/download/' + f.id + '?token=' + t;
+}
+function openMedia(fJson, type) {
+  var f   = JSON.parse(fJson);
+  var src = mediaApiUrl(f, type);
+  var isVid = isVideoFile(f.name);
+  var mediaEl = isVid
+    ? '<video controls autoplay playsinline src="' + src + '" '
+        + 'style="width:100%;max-height:70vh;background:#000;'
+        + 'border-radius:var(--radius-md);display:block">'
+        + 'Your browser cannot play this video.</video>'
+    : '<audio controls autoplay src="' + src + '" '
+        + 'style="width:100%;margin:var(--space-4) 0;display:block">'
+        + 'Your browser cannot play this audio.</audio>';
+  var styleW = isVid ? 'max-width:860px' : '';
+  var fjEsc  = escAttr(JSON.stringify(f));
+  showModal(
+    '<div class="modal-header">'
+    + '<h3 style="font-size:var(--text-sm);font-weight:600;overflow:hidden;'
+    +     'text-overflow:ellipsis;white-space:nowrap;max-width:calc(100% - 48px)">'
+    + escHtml(f.name) + '</h3>'
+    + '<button class="btn btn-ghost btn-icon" onclick="closeModal()" title="Close">'
+    +   '<svg data-lucide="x" width="18" height="18"></svg></button></div>'
+    + '<div class="modal-body" style="padding-top:var(--space-3);gap:var(--space-3)">'
+    + mediaEl
+    + '<div style="display:flex;justify-content:flex-end">'
+    +   '<button class="btn btn-secondary btn-sm" '
+    +     'onclick="dlFile(\'' + fjEsc + '\',\'' + type + '\')">'
+    +     '<svg data-lucide="download" width="14" height="14"></svg> Download'
+    +   '</button></div></div>',
+    styleW
+  );
+  lucide.createIcons();
+}
+
 function fileClick(fJson, type) {
   const f = JSON.parse(fJson);
-  if (f.type !== 'folder') { dlFile(fJson, type); return; }
+  if (f.type !== 'folder') {
+    if (isVideoFile(f.name) || isAudioFile(f.name)) { openMedia(fJson, type); return; }
+    dlFile(fJson, type); return;
+  }
   if (type==='smb') {
     _path = f.path || (_path.replace(/\/$/,'') + '/' + f.name);
     loadSMBFiles();
@@ -1090,10 +1151,11 @@ function setTopbarActions(html) {
   document.getElementById('topbar-actions').innerHTML = html;
   lucide.createIcons();
 }
-function showModal(html) {
+function showModal(html, extraStyle) {
+  var st = extraStyle ? 'style="' + extraStyle + '"' : '';
   document.getElementById('modal-root').innerHTML =
-    `<div class="modal-backdrop" onclick="e=>{if(e.target===this)closeModal()}" id="modal-backdrop">
-       <div class="modal">${html}</div></div>`;
+    `<div class="modal-backdrop" id="modal-backdrop">
+       <div class="modal" ${st}>${html}</div></div>`;
   document.getElementById('modal-backdrop').onclick = e => { if(e.target.id==='modal-backdrop') closeModal(); };
   lucide.createIcons();
 }

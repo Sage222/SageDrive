@@ -82,12 +82,48 @@ def smb_browse(share_id):
 @app.get("/api/smb/download/<share_id>")
 @auth.require_auth
 def smb_download(share_id):
-    path = request.args.get("path","")
+    import os, re as _re
+    path = request.args.get("path", "")
     try:
-        data, filename = smb_manager.download_file(share_id, path)
+        tmp_path, filename, file_size = smb_manager.retrieve_to_tmpfile(share_id, path)
         mime = mimetypes.guess_type(filename)[0] or "application/octet-stream"
-        return send_file(io.BytesIO(data), download_name=filename,
-                         as_attachment=True, mimetype=mime)
+
+        range_header = request.headers.get("Range")
+        if range_header:
+            m = _re.match(r"bytes=(\d+)-(\d*)", range_header)
+            start = int(m.group(1)) if m else 0
+            end   = int(m.group(2)) if m and m.group(2) else file_size - 1
+            end   = min(end, file_size - 1)
+            length = end - start + 1
+            def stream_range():
+                with open(tmp_path, "rb") as f:
+                    f.seek(start)
+                    remaining = length
+                    while remaining:
+                        chunk = f.read(min(65536, remaining))
+                        if not chunk: break
+                        remaining -= len(chunk)
+                        yield chunk
+                os.unlink(tmp_path)
+            resp = app.response_class(stream_range(), status=206, mimetype=mime)
+            resp.headers["Content-Range"]  = f"bytes {start}-{end}/{file_size}"
+            resp.headers["Content-Length"] = str(length)
+            resp.headers["Accept-Ranges"]  = "bytes"
+            resp.headers["Content-Disposition"] = f'attachment; filename="{filename}"' if request.args.get("dl") else f'inline; filename="{filename}"'
+            return resp
+        else:
+            def stream_full():
+                with open(tmp_path, "rb") as f:
+                    while True:
+                        chunk = f.read(65536)
+                        if not chunk: break
+                        yield chunk
+                os.unlink(tmp_path)
+            resp = app.response_class(stream_full(), mimetype=mime)
+            resp.headers["Content-Length"]      = str(file_size)
+            resp.headers["Accept-Ranges"]       = "bytes"
+            resp.headers["Content-Disposition"] = f'attachment; filename="{filename}"' if request.args.get("dl") else f'inline; filename="{filename}"'
+            return resp
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
